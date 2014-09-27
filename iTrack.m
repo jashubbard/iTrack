@@ -127,10 +127,16 @@ classdef iTrack
                 for i=1:length(x)
                     
                     x(i).events=getEdfMessages(x(i));%external file
-                    x(i).index.raw=single(1:(x(i).Header.duration));
-                    x(i).numsamples = x(i).Header.duration;
                     
-
+                    if p.Results.samples
+                        numsamples = length(x(i).Samples.pa); %when importing samples, a few extra samples are trimmed off the end
+                    else
+                        numsamples = x(i).Header.duration; %this is accurate enough for fixation data
+                    end
+                    
+                    x(i).index.raw=single(1:numsamples);
+                    x(i).numsamples = numsamples;
+                    
                     
                     %create a matrix of zeros for each trial that is 
                     % number fixations x  number of samples. Used for indexing fixation data
@@ -793,7 +799,7 @@ classdef iTrack
                             
                             
                         end
-                    case {'messages'}
+                    case {'events'}
                                                 
                         all_messages = arrayfun(@(x) x.events.message',obj.data{s},'Uniform',false);
                         all_times = arrayfun(@(x) x.events.time',obj.data{s},'Uniform',false);
@@ -1278,11 +1284,12 @@ classdef iTrack
             p.addParameter('search',{},@iscell);
             p.addParameter('fieldnames',{},@iscell);
             p.addParameter('striptext',0,@(x) islogical(x) || (ismember(x,[0,1])));
+            p.addParameter('time',0,@(x) islogical(x) || (ismember(x,[0,1])));
             parse(p,varargin{:});
             
             if p.Results.events
                 for s = 1:length(p.Results.search)
-                    obj = extract_event(obj,'search',p.Results.search{s},'fieldname',p.Results.fieldnames{s},'striptext',p.Results.striptext);
+                    obj = extract_event(obj,'search',p.Results.search{s},'fieldname',p.Results.fieldnames{s},'striptext',p.Results.striptext,'time',p.Results.time);
                 end
                 
             elseif p.Results.beh

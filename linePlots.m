@@ -34,6 +34,11 @@ end
 
 
 
+if isempty(factors) %if you just want 1 plot with multiple lines
+    allData.ONEPLOT = ones(length(allData.(dataVar)),1);
+    factors = {'ONEPLOT'};
+end
+
 [allFigData,group_idx,group_levels]=makeSubsets(allData,factors);
 
 
