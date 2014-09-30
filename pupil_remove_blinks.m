@@ -13,6 +13,9 @@ for i=1:length(eyeStruct)
     
     blinks = eyeStruct(i).Blinks;
     
+   
+    numsamples = length(eyeStruct(i).pa);
+    
     
     if ~isempty(blinks)
         
@@ -58,7 +61,7 @@ for i=1:length(eyeStruct)
             
             %remove that interval from the data
             clean_pupils(i).pa(sac_start:sac_end) = NaN;
-            
+            clean_pupils(i).pa = clean_pupils(i).pa(1:numsamples); %sometimes extra samples are added. this protects against it
           
         end
         

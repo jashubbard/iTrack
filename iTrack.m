@@ -300,8 +300,12 @@ classdef iTrack
                             
                             %for adding events, instead of behavioral data
                             if p.Results.addevent
+                                
+                                if ~isnan(joinedDS(i).(newvars{v})) %if missing data, don't add the event!
                                 eyeStruct(i).events.message{end+1}=newvars{v};
                                 eyeStruct(i).events.time(end+1)=joinedDS(i).(newvars{v});
+                                end
+                                
                             else    
                             
                             eyeStruct(i).beh.(newvars{v}) = joinedDS(i).(newvars{v});
@@ -558,8 +562,7 @@ classdef iTrack
             lineup_var = p.Results.event;
             
             
-            window=(before_lineup*-1):(after_lineup-1);
-            window_width=length(window);
+           
             
             
             numsubs=length(obj.subs);
@@ -580,7 +583,7 @@ classdef iTrack
                         %                         startwindow=find(window(1)==trial.index.(lineup_var));
                         %                         endwindow=find(window(end)==trial.index.(lineup_var));
                         %%
-                        startwindow=find(trial.index.(lineup_var)==(before_lineup*-1));
+                        startwindow=find(trial.index.(lineup_var)==((before_lineup-1)*-1)); %time of event is 0, so 500 ms before would be coded as -499 (NOT -500), hence the -1
                         endwindow=find(trial.index.(lineup_var)==after_lineup);
                         
 %%
@@ -596,7 +599,7 @@ classdef iTrack
                         end
                         
                         if isempty(startwindow)
-                            difference=abs(double(trial.index.(lineup_var)(1))-before_lineup*-1);
+                            difference=abs(double(trial.index.(lineup_var)(1))-((before_lineup-1)*-1));
                             newdata=horzcat(nan(1,difference),newdata);
                             startwindow=1;
                             endwindow=endwindow+difference;
@@ -613,7 +616,14 @@ classdef iTrack
                         
                         newdata=newdata(startwindow:endwindow);
                         
-                    else
+                        if length(newdata) ~= length((before_lineup-1)*-1:(after_lineup));
+                            fprintf('Warning: subject %d, trial %d has length of %d\n',obj.subs{s},t,length(newdata));
+                        end
+                        
+                    else %if event isn't found, just write NaNs
+                        
+                        window=((before_lineup-1)*-1):(after_lineup);
+                        window_width=length(window);
                         newdata=nan(1,window_width);
                     end
                     
@@ -1125,11 +1135,11 @@ classdef iTrack
             end
             
              if p.Results.outliers==1
-                fprintf('...removing outliers (samples beyond %d SDs from the mean)...\n',outlier_level);              
+                fprintf('...removing outliers (samples beyond %d SDs from the mean)...\n',p.Results.outlier_level);              
                 %remove samples that are greater than XX standard
                 %deviations from the mean
                 if p.Results.outliers==1
-                    pupildata=pupil_remove_outliers(pupildata,p.Results.outlier_level);
+                    pupildata=pupil_remove_outliers(eyeStruct,p.Results.outlier_level);
                 end
                 
             end
