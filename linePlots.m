@@ -83,10 +83,10 @@ for i=1:length(allFigData)
     
     if p.Results.legend
         names=temp.lineVars;
-        clickableLegend(names,'Location','NorthWest');
+        clickableLegend(cellfun(@fix_title_string,names,'Uniform',false),'Location','NorthWest');
     end
     
-    title(strrep(allFigData(i).title,'_','-'),'fontSize',10);
+    title(cellfun(@fix_title_string,allFigData(i).title,'Uniform',false),'fontSize',10);
     
     set(h,'Name',allFigData(i).title{:},'Toolbar','none','Color','white','Menubar','none');
     

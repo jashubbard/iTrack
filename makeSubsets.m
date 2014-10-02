@@ -9,6 +9,19 @@ else
     
 end
 
+%having underscores in the factor names is a problem. this removes them
+
+for f = 1:length(factors)
+
+newname = regexprep(factors{f},'_','');
+
+allData.(newname) = allData.(factors{f});
+alldata.(factors{f}) = [];
+
+factors{f} = newname;
+
+
+end
 
 [combined_factor,idx,varname] = combineFactors(allData,factors);
 

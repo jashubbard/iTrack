@@ -193,6 +193,7 @@ classdef iTrack
         function obj=reset(obj)
          %revert back to the raw data without reloading edfs. 
             obj.data=obj.raw;
+            obj = index_fixations(obj);
 
         end
 
