@@ -408,10 +408,10 @@ classdef iTrack
      
         
         function obj=baseline(obj,baseline_times,varargin)
-             p = inputParser;
+            p = inputParser;
             p.addParameter('method','percent',@ischar);
             p.addParameter('func','mean',@(x) ismember(x,{'mean','mad'}));
-             p.addParameter('raw',true,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('raw',true,@(x) islogical(x) || ismember(x,[0,1]));
             p.addParameter('event','',@ischar);
             parse(p,varargin{:});
             
@@ -486,7 +486,11 @@ classdef iTrack
                     end
                     
                     
-                    eyeStruct(i).pa_baselined=pupildata;
+                    if p.Results.raw
+                        eyeStruct(i).pa_baselined=pupildata;
+                    else
+                        eyeStruct(i).aligned.(p.Results.event) = pupildata;
+                    end
                     % padata(i,:)=pupildata;
                     
                 end
