@@ -411,6 +411,8 @@ classdef iTrack
              p = inputParser;
             p.addParameter('method','percent',@ischar);
             p.addParameter('func','mean',@(x) ismember(x,{'mean','mad'}));
+             p.addParameter('raw',true,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('event','',@ischar);
             parse(p,varargin{:});
             
             
@@ -442,7 +444,12 @@ classdef iTrack
                 
                 for i=1:length(eyeStruct)
                     
-                    pupildata=eyeStruct(i).pa;
+                    if ~p.Results.raw
+                        pupildata = eyeStruct(i).aligned.(p.Results.event);
+                    else
+                        
+                        pupildata=eyeStruct(i).pa;
+                    end
                     
                     
                     switch(p.Results.func)
