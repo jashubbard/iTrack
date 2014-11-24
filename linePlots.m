@@ -127,7 +127,7 @@ function h=plotRows(data,ctype,cname,linewidth,ylimits)
 h=figure;
 
 if isa(ylimits,'char') && strcmp(ylimits,'auto')
-    ylimits=[min(data(:))-min(data(:))*.20, max(data(:))*1.2];
+    ylimits=[min(data(:))-(abs(min(data(:)))*.20), max(data(:))+(abs(max(data(:)))*.20)];
 end
 
 
