@@ -35,11 +35,11 @@ end
 
 
 if isempty(factors) %if you just want 1 plot with multiple lines
-    allData.ONEPLOT = ones(length(allData.(dataVar)),1);
+    allData.ONEPLOT = ones(size(allData.(dataVar),1),1);
     factors = {'ONEPLOT'};
 end
 
-[allFigData,group_idx,group_levels]=makeSubsets(allData,factors);
+[allFigData,group_idx,group_levels]=makeSubsets_OLD(allData,factors);
 
 
 
@@ -127,7 +127,7 @@ function h=plotRows(data,ctype,cname,linewidth,ylimits)
 h=figure;
 
 if isa(ylimits,'char') && strcmp(ylimits,'auto')
-    ylimits=[min(data(:))-(abs(min(data(:)))*.20), max(data(:))+(abs(max(data(:)))*.20)];
+    ylimits=[min(data(:))-(abs(min(data(:)))*.02), max(data(:))+(abs(max(data(:)))*.02)];
 end
 
 

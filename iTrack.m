@@ -26,9 +26,25 @@ classdef iTrack
             p.addParameter('keeptrials',[]);
             p.addParameter('droptrials',[]);
             
-            parse(p,varargin{:});
             
-            edfs = p.Results.edfs;
+            %optionally you can give first argument as the filename or cell
+            %array of file names. 
+            if iscell(varargin{1}) %z = iTrack({'edf1.edf','edf2.edf'});
+                edfs = varargin{1};
+                parse(p,varargin{2:end});
+            
+            elseif exist(varargin{1},'file') % z = iTrack('edfname.edf');
+                edfs = {varargin{1}};
+                parse(p,varargin{2:end});
+            
+            else %this is if you say z = iTrack('edfs','edfname.edf')
+                parse(p,varargin{:});
+                edfs = p.Results.edfs;
+            end
+
+                
+            
+
             
             obj.subject_var = p.Results.subject_var;
             
@@ -102,6 +118,8 @@ classdef iTrack
                 [x.beh] = deal(struct);
 %                 [x.fixation_hits]  = deal([]);
                 
+                obj.subs{s,1}=str2double(regexprep(fname,'[!@#$%^&()?"*+=-_'',./~` A-Za-z]','')); %subject number from filename, minus any funny characters
+                
                 %trials with no recorded fixations are empty [], but we want
                 %them to be structures with NaN's for each field - it makes
                 %life easier
@@ -127,6 +145,11 @@ classdef iTrack
                 for i=1:length(x)
                     
                     x(i).events=getEdfMessages(x(i));%external file
+                    
+                    %add the ID to the behavioral part, makes some
+                    %downstream functions work better
+                    x(i).beh.ID = obj.subs{s,1};
+                    
                     
                     if p.Results.samples
                         numsamples = length(x(i).Samples.pa); %when importing samples, a few extra samples are trimmed off the end
@@ -163,8 +186,7 @@ classdef iTrack
                 x= rmfield(x,'Buttons'); %also remove this to save memory
                 
                 obj.raw{s,1}=x; %structure with all the information
-                obj.subs{s,1}=str2double(regexprep(fname,'[!@#$%^&()?"*+=-_'',./~` A-Za-z]','')); %subject number from filename, minus any funny characters
-                
+              
                 clear x;
             end
             
@@ -197,6 +219,57 @@ classdef iTrack
 
         end
 
+        
+        function obj=quickview(obj,varargin)
+            
+            p = inputParser;
+            p.addParameter('zoom',false,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('screen',true,@(x) islogical(x) || ismember(x,[0,1]));
+            parse(p,varargin{:});
+            
+            
+            %get fixation x/y coordinates
+            fixdata = build_dataset(obj,'allfix',true,'rois',{'xy'});
+           
+            numsubs=size(obj.data(:,1),1);
+            
+            %screen dimensions
+            screenx = obj.screen.dims(1);
+            screeny = obj.screen.dims(2);
+            xcenter = fix(screenx/2);
+            ycenter = fix(screeny/2);
+            
+            %create a figure for each subject
+            for s = 1:numsubs
+                
+                temp = fixdata(fixdata.(obj.subject_var)==obj.subs{s},:);
+                
+                figure;
+                scatter(temp.x_coord,temp.y_coord);
+                
+                if p.Results.zoom
+                    set(gca,'XLim',[-2,screenx+2]);
+                    set(gca,'YLim',[-2,screeny+2]);   
+                end
+                
+                
+                %draw a red rectangle where the screen was, and a dot at
+                %the center for reference
+                if p.Results.screen
+                rectangle('Position',[1,1,screenx,screeny],'EdgeColor','r');
+                rectangle('Position',[xcenter,ycenter,10,10],'FaceColor','r','Curvature',[1,1]);
+                end
+                
+                %make 0,0 at upper-left so it matches psychtoolbox
+                set(gca, 'YDir', 'reverse');
+                title(obj.subs{s});
+            end
+            
+            placeFigures;
+            
+        end
+        
+        
         function obj= add_behdata(obj,behFile,varargin)
             p = inputParser;
             p.addParameter('index',{},@iscell);
@@ -451,13 +524,17 @@ classdef iTrack
                         pupildata=eyeStruct(i).pa;
                     end
                     
-                    
-                    switch(p.Results.func)
-                        case {'mean'}
-                            baseline=nanmean(pupildata(baseline_interval));
-                        case {'mad'}
-                            baseline=mad(pupildata(baseline_interval));
+                    if length(pupildata)<=max(baseline_interval)
+                        baseline_interval=1:(length(pupildata)-1);
                     end
+                    
+                    
+                        switch(p.Results.func)
+                            case {'mean'}
+                                baseline=nanmean(pupildata(baseline_interval));
+                            case {'mad'}
+                                baseline=mad(pupildata(baseline_interval));
+                        end
 
 %                     allsd = nanstd(pupildata(baseline_times(end):end));
                     
@@ -550,12 +627,6 @@ classdef iTrack
                 
             end
             
-            
-        end
-        
-        function obj=lineup(obj,lineup_var,before_lineup,after_lineup,varargin)
-            %to make old scripts work. 
-            obj = epoch(obj,lineup_var,before_lineup,after_lineup,varargin{:});
             
         end
         
@@ -962,8 +1033,18 @@ classdef iTrack
 
             %             for s=1:numsubs
             
-            allsubdata=[obj.data{:}]; %behavioral data
-            behdata=struct2table(vertcat(allsubdata.beh));
+            
+           
+            allsubdata = cellfun(@(x) [x.beh]',obj.data,'Uniform',false);
+            allsubdata = vertcat(allsubdata{:});
+            behdata = stack_structarray(allsubdata);
+            
+%             allsubdata=[obj.data{:}]; %behavioral data
+%             behdata=struct2table(vertcat(allsubdata.beh));
+            
+            
+   
+           
             
             %                 behdata=behdata(:,behvars);
             
