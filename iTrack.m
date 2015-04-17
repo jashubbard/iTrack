@@ -83,6 +83,8 @@ classdef iTrack
                 
                 %import edf file
                 
+                fprintf('Importing file %s...\n',fname);
+                
                 if p.Results.samples==1
                     x=edfImport(fname,[1 1 1],'pa gx gy');
                 else
@@ -136,11 +138,51 @@ classdef iTrack
                
                 %fill those trials with our empty struct
                 [x(cellfun(@isempty,{x.Fixations})).Fixations] = deal(empty_struct);
+                
+                
+                %repeat for Saccades
+                fnames = fieldnames([x.Saccades]); %fieldnames from fixation structure
+                
+                empty_struct = struct;
+                
+                for f=1:length(fnames)
+                    empty_struct.(fnames{f}) = NaN;
+                end
+                
+               
+                %fill those trials with our empty struct
+                [x(cellfun(@isempty,{x.Saccades})).Saccades] = deal(empty_struct);
+                
+                 
+                %repeat for Blinks
+                fnames = fieldnames([x.Blinks]); %fieldnames from fixation structure
+                
+                empty_struct = struct;
+                
+                for f=1:length(fnames)
+                    empty_struct.(fnames{f}) = NaN;
+                end
+                
+               
+                %fill those trials with our empty struct
+                [x(cellfun(@isempty,{x.Blinks})).Blinks] = deal(empty_struct);
+                
+                
                
                 %this transposes all the fixation data so it's 1 row per
                 %fixation, instead of column-wise
                 temp = arrayfun(@(y) structfun(@transpose,y,'Uniform',false),[x.Fixations],'Uniform',false);
                 [x.Fixations] = deal(temp{:});
+                
+                %repeat for saccades
+                temp = arrayfun(@(y) structfun(@transpose,y,'Uniform',false),[x.Saccades],'Uniform',false);
+                [x.Saccades] = deal(temp{:});
+                
+                %repeat for blinks
+                temp = arrayfun(@(y) structfun(@transpose,y,'Uniform',false),[x.Blinks],'Uniform',false);
+                [x.Blinks] = deal(temp{:});
+                
+                
                 
                 for i=1:length(x)
                     
@@ -149,6 +191,8 @@ classdef iTrack
                     %add the ID to the behavioral part, makes some
                     %downstream functions work better
                     x(i).beh.ID = obj.subs{s,1};
+                    x(i).eye_idx = i; %also add eye_idx for later
+                    x(i).beh.eye_idx = i;
                     
                     
                     if p.Results.samples
@@ -850,12 +894,18 @@ classdef iTrack
             %called once. 
             if ~isempty(p.Results.roi)
                 if strcmp(p.Results.roi,'xy')
-                    temp_allfix = get_Fixations(obj,'fields',{'gavx','gavy'});
+                    temp_allfix = get_eyeEvents(obj,'type','fixations','fields',{'gavx','gavy'});
                     
                     
                 elseif strcmp(p.Results.roi,'time')
-                    temp_allfix = get_Fixations(obj,'fields',{'sttime','entime'});
+                    temp_allfix = get_eyeEvents(obj,'type','fixations','fields',{'sttime','entime'});
                 end
+            end
+            
+            
+            if strcmp(p.Results.item,'allsacc')
+                temp_allsacc = get_eyeEvents(obj,'type','saccades','fields',...
+                         {'sttime','entime','time','gstx','gsty','genx','geny','avel','pvel','ampl','phi'});                         
             end
             
             
@@ -936,7 +986,9 @@ classdef iTrack
                               temp = [temp.fixation_hits];
                               temp = reshape({temp.(p.Results.roi)},[],1);
                           end
-                          
+                    case {'allsacc'}
+                       
+                     temp = temp_allsacc{s};  
                 end
                 
                 
@@ -997,7 +1049,7 @@ classdef iTrack
                         end
                             
                     end
-                case {'allfix'}
+                case {'allfix','allsacc'}
                     datamat = [];
                         
                 otherwise
@@ -1016,6 +1068,7 @@ classdef iTrack
             p = inputParser;
             p.addParameter('fix',false,@(x) islogical(x) || ismember(x,[0,1]));
             p.addParameter('allfix',false,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('allsacc',false,@(x) islogical(x) || ismember(x,[0,1]));
             p.addParameter('raw',false,@(x) islogical(x) || ismember(x,[0,1]));
             p.addParameter('beh',{},@iscell);
             p.addParameter('events',{'none'},@iscell);
@@ -1030,23 +1083,11 @@ classdef iTrack
                 eyevars={eyevars};
             end
             
-
-            %             for s=1:numsubs
-            
-            
-           
+       
             allsubdata = cellfun(@(x) [x.beh]',obj.data,'Uniform',false);
             allsubdata = vertcat(allsubdata{:});
             behdata = stack_structarray(allsubdata);
-            
-%             allsubdata=[obj.data{:}]; %behavioral data
-%             behdata=struct2table(vertcat(allsubdata.beh));
-            
-            
-   
-           
-            
-            %                 behdata=behdata(:,behvars);
+
             
             %by default, grab all behavioral data. Otherwise, specify
             %variables
@@ -1114,9 +1155,47 @@ classdef iTrack
                         
                         dataDS = varfun(@(x) vertcat(x{:}),temptable);
                         dataDS.Properties.VariableNames = temptable.Properties.VariableNames;
+                 
+                elseif p.Results.allsacc
+                        %for grabbing all saccade data (multiple saccades
+                        %per trial
                         
+                        %pull out saccade information (both as a cell and a
+                        %table)
+                        [tempcell, temptable] = get_eyeEvents(obj,'type','saccades','fields',...
+                         {'sttime','entime','time','gstx','gsty','genx','geny','avel','pvel','ampl','phi'});  
                         
+                        %get behavioral data as a cell, so you can repeat
+                        %rows
+                        tempbeh = table2cell(dataDS);
                         
+                        %calculate the number of repeats per row
+                        tempcell = vertcat(tempcell{:,1});
+                        numsaccs = cellfun(@(x) size(x,1),tempcell,'Uniform',false);
+                        numsaccs = repmat(numsaccs,1,size(tempbeh,2));
+                        
+                        %replicate each row by the number of saccades for
+                        %that trial
+                        tempbeh = cellfun(@(x,y) repmat(x,y,1),tempbeh,numsaccs,'Uniform',false);
+                        tempbeh = cell2table(tempbeh,'VariableNames',dataDS.Properties.VariableNames);
+                        
+                        %we're going to combine tables, so we don't want
+                        %repeated variable names
+                        common_vars = intersect(tempbeh.Properties.VariableNames,temptable.Properties.VariableNames);
+                        
+                        if ~isempty(common_vars)
+                            temptable(:,common_vars) = [];
+                        end
+                     
+                        %each column ends up as a nested cell-- this just flattens everything and keeps the variable names the same
+                        %instead of renaming Fun_ID, Fun_Trial, Fun_Block,
+                        %etc. 
+                        varnames = tempbeh.Properties.VariableNames;
+                        tempbeh = varfun(@(x) vertcat(x{:}),tempbeh);
+                        tempbeh.Properties.VariableNames = varnames; 
+                        
+                        %squish the data together
+                        dataDS = horzcat(tempbeh,temptable);
                         
                     else
                         %default - we get epoched pupil data
@@ -1392,7 +1471,7 @@ classdef iTrack
             
             if p.Results.events
                 for s = 1:length(p.Results.search)
-                    obj = extract_event(obj,'search',p.Results.search{s},'fieldname',p.Results.fieldnames{s},'striptext',p.Results.striptext,'time',p.Results.time);
+                    obj = extract_event(obj,'search',p.Results.search{s},'fieldname',p.Results.fieldnames{s},'striptext',p.Results.striptext,'time',p.Results.time,'behfield',false);
                 end
                 
             elseif p.Results.beh
@@ -1429,6 +1508,7 @@ classdef iTrack
             p.addParameter('fieldname','',@ischar);
             p.addParameter('time',0,@(x) islogical(x) || (ismember(x,[0,1])));
             p.addParameter('striptext',0,@(x) islogical(x) || (ismember(x,[0,1])));
+            p.addParameter('behfield',1,@(x) islogical(x) || (ismember(x,[0,1])));
             parse(p,varargin{:});
             
             
@@ -1464,11 +1544,19 @@ classdef iTrack
                             val=val{find_idx};
                         end
                         
-                        eyeStruct(i).(fieldname) = val;
+                        
+                        if (p.Results.behfield)
+                            eyeStruct(i).beh.(fieldname) = val;
+                        else
+                            eyeStruct(i).(fieldname) = val;
+                        end
+                        
                     else
-                        
-                        eyeStruct(i).(fieldname) = '!!MESSAGE_NOT_FOUND!!';
-                        
+                        if (p.Results.behfield)
+                            eyeStruct(i).beh.(fieldname) = 'NaN';
+                        else
+                            eyeStruct(i).(fieldname) = 'NaN';
+                        end
                     end
                     
                     
@@ -1601,24 +1689,35 @@ classdef iTrack
             
         end
       
-        function [fixcell,fixtable] = get_Fixations(obj,varargin)
+        function [fixcell,fixtable] = get_eyeEvents(obj,varargin)
            
             p = inputParser;
             p.addParameter('subjects',[],@(x) isnumeric(x) || iscell(x));
-            p.addParameter('fields',{},@(x) iscell(x))
+            p.addParameter('type','fixations', @(x) ischar(x));
+            p.addParameter('fields',{},@(x) iscell(x));
             parse(p,varargin{:});
             
             
             %get all fixation data at once
             S = struct;
             S.type='.';
-            S.subs='Fixations';
+            
+            if strcmpi(p.Results.type,'saccades')
+                S.subs = 'Saccades';
+            elseif strcmpi(p.Results.type,'fixations')
+                
+                S.subs='Fixations';
+                
+            elseif strcmpi(p.Results.type,'blinks')
+                
+                S.subs='Blinks';
+            end
             
             %this gives a cell for each subject, with a cell array for each
             %trial 
             temp = subsref(obj,S);
             
-            fnames = fieldnames(temp{1}{1});
+            fnames = reshape(fieldnames(temp{1}{1}),1,[]);
             
             %convert the nested cell arrays to matricies
             fixcell = cellfun(@(y) cellfun(@struct2array,y,'Uniform',false),temp,'Uniform',false);
@@ -1629,7 +1728,7 @@ classdef iTrack
             if ~isempty(p.Results.fields)
                 f_idx = cell2mat(cellfun(@(x) find(strcmp(x,fnames)),p.Results.fields,'Uniform',false));
                 fixcell = cellfun(@(y) cellfun(@(z) z(:,f_idx),y,'Uniform',false), fixcell,'Uniform',false);
-                fnames = p.Results.fields;
+                fnames = reshape(p.Results.fields,1,[]);
             end
             
             
@@ -1661,15 +1760,15 @@ classdef iTrack
             
             %add the subject and trial information, then convert to a table
             temp = horzcat(subids,trialnums,temp);
-            fixtable = array2table(temp,'VariableNames',horzcat(obj.subject_var,'trial_idx',fnames));
+            fixtable = array2table(temp,'VariableNames',horzcat(obj.subject_var,'eye_idx',fnames));
                     
         end
+           
         
-     
         function obj=index_fixations(obj)
             
            %grab all fixations 
-           fixcell = get_Fixations(obj,'fields',{'sttime','entime'});
+           fixcell = get_eyeEvents(obj,'type','fixations','fields',{'sttime','entime'});
            
            %for each subject
            for s = 1:length(fixcell)
@@ -1839,7 +1938,7 @@ classdef iTrack
   
             numROIs = length(rois);
             
-            allfixdata = get_Fixations(obj,'fields',{'gavx','gavy'});
+            allfixdata = get_eyeEvents(obj,'type','fixations','fields',{'gavx','gavy'});
             
             for s=1:numsubs
                 

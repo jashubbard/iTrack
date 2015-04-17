@@ -17,7 +17,7 @@ for i=1:length(eyeStruct)
     numsamples = length(eyeStruct(i).pa);
     
     
-    if ~isempty(blinks)
+    if ~isnan(blinks.sttime)
         
         %         disp(length(blinks.sttime))
         
