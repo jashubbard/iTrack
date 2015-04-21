@@ -1062,6 +1062,27 @@ classdef iTrack
         end
         
         
+        function dataDS= report(obj,varargin)
+            p = inputParser;
+            p.addRequired('type');
+            p.addParameter('vars',{},@iscell);
+            p.addParameter('rois',{},@iscell);
+            parse(p,varargin{:});
+             
+            
+            switch p.Results.type
+                case {'fixations'}
+                    dataDS = build_dataset(obj,'allfix',true,'beh',p.Results.vars,'rois',{'xy','time'});
+                case {'saccades'}
+                    dataDS = build_dataset(obj,'allsacc',true,'beh',p.Results.vars);
+                case {'blinks'}
+                    dataDS = build_dataset(obj,'allblinks',true,'beh',p.Results.vars);
+            end
+            
+            
+        end
+        
+               
         
         function dataDS=build_dataset(obj,varargin)
             
@@ -1069,6 +1090,7 @@ classdef iTrack
             p.addParameter('fix',false,@(x) islogical(x) || ismember(x,[0,1]));
             p.addParameter('allfix',false,@(x) islogical(x) || ismember(x,[0,1]));
             p.addParameter('allsacc',false,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('allblinks',false,@(x) islogical(x) || ismember(x,[0,1]));
             p.addParameter('raw',false,@(x) islogical(x) || ismember(x,[0,1]));
             p.addParameter('beh',{},@iscell);
             p.addParameter('events',{'none'},@iscell);
@@ -1134,25 +1156,42 @@ classdef iTrack
                             end
                         end
                         
+                        %grab behavioral data
                         tempbeh = table2cell(dataDS);
                         
+                        %figure out how many fixations per trial
                         numfixes = cellfun(@(x) size(x,1),temptable{:,1},'Uniform',false);
-                        numfixes = repmat(numfixes,1,size(tempbeh,2));
+                        numfixes = repmat(numfixes,1,size(tempbeh,2)+1);
                         
+                        %add the column for "numfixes" that gets replicated
+                        %for each trial (like all other behavioral data)
+                        tempbeh = horzcat(tempbeh,numfixes(:,1));
+                        
+                        %create 1:num_fix for each trial
+                        fix_idx = cellfun(@(x) [1:x]',numfixes(:,1),'Uniform',false);
+                        
+                        
+                        %replicate behavioral data for each fixation
                         tempbeh = cellfun(@(x,y) repmat(x,y,1),tempbeh,numfixes,'Uniform',false);
                         
-                        tempbeh = cell2table(tempbeh,'VariableNames',dataDS.Properties.VariableNames);
+                        %add the 1:num_fix column at the end
+                        tempbeh = horzcat(tempbeh,fix_idx);
                         
+                        %turn into a table
+                        tempbeh = cell2table(tempbeh,'VariableNames',horzcat(dataDS.Properties.VariableNames,'numfix','fix_idx'));
                         
+                        %remove any variables that are common to the
+                        %behavioral and the eye data
                         common_vars = intersect(tempbeh.Properties.VariableNames,temptable.Properties.VariableNames);
                         
                         if ~isempty(common_vars)
                             tempbeh(:,common_vars) = [];
                         end
                         
-                        
+                        %combine the tables
                         temptable = horzcat(tempbeh,temptable);
                         
+                        %create "flat" columns for each
                         dataDS = varfun(@(x) vertcat(x{:}),temptable);
                         dataDS.Properties.VariableNames = temptable.Properties.VariableNames;
                  
@@ -1172,12 +1211,25 @@ classdef iTrack
                         %calculate the number of repeats per row
                         tempcell = vertcat(tempcell{:,1});
                         numsaccs = cellfun(@(x) size(x,1),tempcell,'Uniform',false);
-                        numsaccs = repmat(numsaccs,1,size(tempbeh,2));
+                        numsaccs = repmat(numsaccs,1,size(tempbeh,2)+1);
+                        
+                        
+                        %add the column for "numfixes" that gets replicated
+                        %for each trial (like all other behavioral data)
+                        tempbeh = horzcat(tempbeh,numsaccs(:,1));
+                        
+                        %create 1:num_fix for each trial
+                        sacc_idx = cellfun(@(x) [1:x]',numsaccs(:,1),'Uniform',false);
+                        
                         
                         %replicate each row by the number of saccades for
                         %that trial
                         tempbeh = cellfun(@(x,y) repmat(x,y,1),tempbeh,numsaccs,'Uniform',false);
-                        tempbeh = cell2table(tempbeh,'VariableNames',dataDS.Properties.VariableNames);
+                        
+                        %add the 1:num_fix column at the end
+                        tempbeh = horzcat(tempbeh,sacc_idx);
+                        
+                        tempbeh = cell2table(tempbeh,'VariableNames',horzcat(dataDS.Properties.VariableNames,'numsacc','sacc_idx'));
                         
                         %we're going to combine tables, so we don't want
                         %repeated variable names
