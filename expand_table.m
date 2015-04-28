@@ -1,6 +1,10 @@
- function dataDS=expand_table(tabledata,repeats)
-    newvars = {'numfix','fix_idx'};
+ function dataDS=expand_table(tabledata,repeats,varargin)
  
+    if ~isempty(varargin)
+        newvars = varargin{1};
+    else
+        newvars = {'num','idx'};
+    end
             %grab behavioral data
             tempbeh = table2cell(tabledata);
             
