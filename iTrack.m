@@ -1874,7 +1874,7 @@ classdef iTrack
             
         end
       
-        function [fixcell,fixtable] = get_eyeEvents(obj,varargin)
+        function [fixcell,eyetable] = get_eyeEvents(obj,varargin)
            
             p = inputParser;
             p.addRequired('type', @(x) ischar(x));
@@ -1978,9 +1978,9 @@ classdef iTrack
             temp = horzcat(subids,trialnums,temp);
             
             if p.Results.rename
-                fixtable = array2table(temp,'VariableNames',horzcat(obj.subject_var,'eye_idx',newnames));
+                eyetable = array2table(temp,'VariableNames',horzcat(obj.subject_var,'eye_idx',newnames));
             else
-                fixtable = array2table(temp,'VariableNames',horzcat(obj.subject_var,'eye_idx',fnames));
+                eyetable = array2table(temp,'VariableNames',horzcat(obj.subject_var,'eye_idx',fnames));
             end
             
             
@@ -1988,24 +1988,58 @@ classdef iTrack
                
                 if strcmpi(p.Results.type,'fixations')
                     allrois = subsref(obj,struct('type','.','subs','fixation_hits'));
+                    allrois_end = [];
                 elseif strcmpi(p.Results.type,'saccades')
-                    allrois = subsref(obj,struct('type','.','subs','saccade_end_hits'));
+                    allrois = subsref(obj,struct('type','.','subs','saccade_start_hits'));
+                    allrois_end = subsref(obj,struct('type','.','subs','saccade_end_hits'));
                 end
                     
                 allrois = vertcat(allrois{:});
                 allrois = vertcat(allrois{:});
+                
+                if ~isempty(allrois_end)
+                    allrois_end = vertcat(allrois_end{:});
+                    allrois_end = vertcat(allrois_end{:});
+                end
                 
                 roihits = table;
                 
-                for r = 1:length(p.Results.rois)
-                   
-                    rname = strcat('roi_',p.Results.rois{r});
-                    rname_new = strcat(p.Results.rois{r},'_hit');
-                    roihits.(rname_new) = vertcat(allrois.(rname));
+                
+                
+                
+                if isempty(allrois_end)
+                    %if we're doing fixations, then just loop through rois
+                    %once
+                    for r = 1:length(p.Results.rois)
+                        
+                        rname = strcat('roi_',p.Results.rois{r});
+                        rname_new = strcat(p.Results.rois{r},'_hit');
+                        roihits.(rname_new) = vertcat(allrois.(rname));
+                        
+                    end
                     
+                else
+                    %if we're doing saccades, then we want to do it twice
+                    %(for the start and the end of saccades)
+                    for i = 1:2
+                       
+                        for r = 1:length(p.Results.rois)    
+                            rname = strcat('roi_',p.Results.rois{r});
+                            
+                            if i==1
+                                rname_new = strcat(p.Results.rois{r},'_start_hit');                         
+                                roihits.(rname_new) = vertcat(allrois.(rname));
+                            else
+                                
+                                rname_new = strcat(p.Results.rois{r},'_end_hit');                         
+                                roihits.(rname_new) = vertcat(allrois_end.(rname));
+                            end
+                        end
+  
+                    end                
                 end
                 
-                fixtable = horzcat(fixtable,roihits);
+                eyetable = horzcat(eyetable,roihits);
                 
             end
             
@@ -2149,7 +2183,8 @@ classdef iTrack
              end
              
             end
-            
+
+                       
         end
         
         function obj=combineROIs(obj)
@@ -2168,8 +2203,23 @@ classdef iTrack
             
         end
         
-          function obj= calcFixationHits(obj,varargin)
+        
+        function obj = calcHits(obj,varargin)
+            %wrapper for calcEyehits_ to make it easier to repreat for
+            %fixations and saccades.
+            p = inputParser;
+            p.addParameter('rois','all',@(x) iscell(x) || ischar(x));
+            parse(p,varargin{:});
             
+            obj = calcEyehits_(obj,'rois',p.Results.rois,'type','fixations');
+            obj = calcEyehits_(obj,'rois',p.Results.rois,'type','saccade_start');
+            obj = calcEyehits_(obj,'rois',p.Results.rois,'type','saccade_end');
+                   
+        end
+        
+        function obj= calcEyehits_(obj,varargin)
+            %internal function for calculating whether fixations/saccades
+            %hit a given roi or not. 
             p = inputParser;
             p.addParameter('rois','all',@(x) iscell(x) || ischar(x));
             p.addParameter('type','fixations',@ischar);
@@ -2193,9 +2243,12 @@ classdef iTrack
             if strcmpi(p.Results.type,'fixations')
                 allfixdata = get_eyeEvents(obj,'fixations','fields',{'gavx','gavy'},'rename',false);
                 newfname = 'fixation_hits';
-            elseif strcmpi(p.Results.type,'saccades')
+            elseif strcmpi(p.Results.type,'saccade_end')
                 allfixdata = get_eyeEvents(obj,'saccades','fields',{'genx','geny'},'rename',false);
                 newfname = 'saccade_end_hits';
+            elseif strcmpi(p.Results.type,'saccade_start')
+                allfixdata = get_eyeEvents(obj,'saccades','fields',{'gstx','gsty'},'rename',false);
+                newfname = 'saccade_start_hits';
             end
             
             for s=1:numsubs
@@ -2456,10 +2509,51 @@ classdef iTrack
         end
         
         
-        
-        function obj=mapROIs(obj,newName,varargin)
+        function obj=mapROIs(obj,varargin)
+            %wrapper for roimapper. Makes it easy to repeat for fixations
+            %and saccades and for multiple mappings.
+            %indicator can be a name from the behavioral file, or a cell
+            %array with a cell of values for each subject, or a single
+            %value that's repeated for each subject. 
+            
             p = inputParser;
-            p.addParameter('rois','all',@iscell);
+            p.addParameter('name',{},@(x) ischar(x) || iscell(x));
+            p.addParameter('indicator',{});
+            parse(p,varargin{:});
+            
+            
+            if ~isa(p.Results.name,'cell')
+                names = {p.Results.name};
+            else
+                names = p.Results.name;
+            end
+            
+            if ~isa(p.Results.indicator,'cell')
+                indicators = {p.Results.indicator};
+            else
+                indicators = p.Results.indicator;
+            end
+            
+            %repeat for each one specified, and supply indicator for each
+            for n = 1:length(names)
+                
+                if ~isempty(indicators)
+                    ind = indicators{n};
+                end
+                
+                obj = roimapper_(obj,names{n},'type','fixations','indicator',ind);
+                obj = roimapper_(obj,names{n},'type','saccade_start','indicator',ind);
+                obj = roimapper_(obj,names{n},'type','saccade_end','indicator',ind);
+            end
+        end
+        
+        
+        
+        
+        function obj=roimapper_(obj,newName,varargin)
+            %primarily mapping from original experiment-wide ROIs (1,2,3..) to
+            %trial-specific rois (e.g., 'target','distractor')  
+            p = inputParser;
             p.addParameter('indicator',{});
             p.addParameter('type','fixations',@ischar);
             parse(p,varargin{:}); 
@@ -2470,8 +2564,13 @@ classdef iTrack
             switch lower(p.Results.type)
                 case {'fixations'}
                     fname = 'fixation_hits';
-                case {'saccades'}
+                    fname2 = 'Fixations';
+                case {'saccade_start'}
+                    fname = 'saccade_start_hits';
+                    fname2 = 'Saccades';
+                case {'saccade_end'}
                     fname = 'saccade_end_hits';
+                    fname2 = 'Saccades';
             end
                         
             
@@ -2531,9 +2630,9 @@ classdef iTrack
                        
                        
                    if ~isempty(roiname)
-                        obj.data{s}(i).(fname).(newName) = obj.data{s}(i).fixation_hits.(roiname);
+                        obj.data{s}(i).(fname).(newName) = obj.data{s}(i).(fname).(roiname);
                    else
-                       obj.data{s}(i).(fname).(newName) = single(nan(size(obj.data{s}(i).fixation_times,1),1));
+                       obj.data{s}(i).(fname).(newName) = single(nan(size(obj.data{s}(i).(fname2).sttime,1),1));
                    end
                    
                    
