@@ -893,7 +893,7 @@ classdef iTrack
                     %for eye events (multiple events per trial) use the
                     %special function
                     
-                    [varargout{2},varargout{1}] = get_eyeEvents(obj,lower(p.Results.item),'fields',p.Results.fields);
+                    [varargout{2},varargout{1}] = get_eyeEvents(obj,lower(p.Results.item),'fields',p.Results.fields,'rois',p.Results.rois);
                     
                     
                     
@@ -1249,7 +1249,7 @@ classdef iTrack
                         
             switch p.Results.type
                 case {'fixations','saccades','blinks'}
-                    eyedata = get_new(obj,p.Results.type,'fields',p.Results.eyevars);
+                    eyedata = get_new(obj,p.Results.type,'fields',p.Results.eyevars,'rois',p.Results.rois);
                     eyevars = eyedata.Properties.VariableNames(3:end);
                     data = outerjoin(beh,eyedata,'keys',{obj.subject_var,'eye_idx'},'MergeKeys',true);
                     data = data(:,horzcat(behvars,eyevars));
@@ -1880,7 +1880,9 @@ classdef iTrack
             p.addRequired('type', @(x) ischar(x));
             p.addParameter('subjects',[],@(x) isnumeric(x) || iscell(x));
             p.addParameter('fields',{},@(x) iscell(x));
+            p.addParameter('rois',{},@(x) iscell(x));
             p.addParameter('rename',true);
+            
             parse(p,varargin{:});
             
             
@@ -1980,7 +1982,37 @@ classdef iTrack
             else
                 fixtable = array2table(temp,'VariableNames',horzcat(obj.subject_var,'eye_idx',fnames));
             end
+            
+            
+            if ~isempty(p.Results.rois) 
+               
+                if strcmpi(p.Results.type,'fixations')
+                    allrois = subsref(obj,struct('type','.','subs','fixation_hits'));
+                elseif strcmpi(p.Results.type,'saccades')
+                    allrois = subsref(obj,struct('type','.','subs','saccade_end_hits'));
+                end
                     
+                allrois = vertcat(allrois{:});
+                allrois = vertcat(allrois{:});
+                
+                roihits = table;
+                
+                for r = 1:length(p.Results.rois)
+                   
+                    rname = strcat('roi_',p.Results.rois{r});
+                    rname_new = strcat(p.Results.rois{r},'_hit');
+                    roihits.(rname_new) = vertcat(allrois.(rname));
+                    
+                end
+                
+                fixtable = horzcat(fixtable,roihits);
+                
+            end
+            
+            
+            
+            
+            
         end
            
         
@@ -2136,11 +2168,11 @@ classdef iTrack
             
         end
         
-       
-        function obj= calcFixationHits(obj,varargin)
+          function obj= calcFixationHits(obj,varargin)
             
             p = inputParser;
             p.addParameter('rois','all',@(x) iscell(x) || ischar(x));
+            p.addParameter('type','fixations',@ischar);
             parse(p,varargin{:});
             
               
@@ -2157,7 +2189,14 @@ classdef iTrack
   
             numROIs = length(rois);
             
-            allfixdata = get_eyeEvents(obj,'fixations','fields',{'gavx','gavy'},'rename',false);
+            
+            if strcmpi(p.Results.type,'fixations')
+                allfixdata = get_eyeEvents(obj,'fixations','fields',{'gavx','gavy'},'rename',false);
+                newfname = 'fixation_hits';
+            elseif strcmpi(p.Results.type,'saccades')
+                allfixdata = get_eyeEvents(obj,'saccades','fields',{'genx','geny'},'rename',false);
+                newfname = 'saccade_end_hits';
+            end
             
             for s=1:numsubs
                 
@@ -2173,9 +2212,6 @@ classdef iTrack
                     roi_idx = find(ismember({obj.rois.single.name},rois{r}));
                     
                     roi_mask = obj.rois.single(roi_idx).mask;
-                    
-                
-
                     
                     %%
                     %matrix of all coordinates
@@ -2203,7 +2239,7 @@ classdef iTrack
                     scr = zeros(yres,xres);
 
                     %find the indicies of the fixations
-                    idx = sub2ind([768,1024],ucoords(:,2),ucoords(:,1));
+                    idx = sub2ind([yres,xres],ucoords(:,2),ucoords(:,1));
                     scr(idx)=1:length(ucoords); 
 
                     fix_bin = logical(scr); %binary mask of fixations
@@ -2243,12 +2279,126 @@ classdef iTrack
                 %because matlab is dumb.
                 temp = arrayfun(@(x) {x},fixation_hits);
                 
+               
+                
+                
                 %now we can fill in our data
-                [obj.data{s}.fixation_hits] = deal(temp{:}); 
+                [obj.data{s}.(newfname)] = deal(temp{:}); 
                 
             end
                
         end
+        
+        
+%         function obj= calcFixationHits(obj,varargin)
+%             
+%             p = inputParser;
+%             p.addParameter('rois','all',@(x) iscell(x) || ischar(x));
+%             parse(p,varargin{:});
+%             
+%               
+%             numsubs = length(obj.subs);
+%             
+%             
+%             if ~iscell(p.Results.rois) && strcmp(p.Results.rois,'all')
+%                 rois = {obj.rois.single.name};
+%             elseif ~iscell(p.Results.rois) 
+%                 rois = {p.Results.rois};
+%             else
+%                 rois = p.Results.rois;
+%             end
+%   
+%             numROIs = length(rois);
+%             
+%             allfixdata = get_eyeEvents(obj,'fixations','fields',{'gavx','gavy'},'rename',false);
+%             
+%             for s=1:numsubs
+%                 
+%                 fixation_hits = struct;
+%                 data = allfixdata{s};
+%                 
+%                 
+%                 for r=1:numROIs
+%            
+%                     xres = obj.screen.dims(1);
+%                     yres = obj.screen.dims(2);
+%                     
+%                     roi_idx = find(ismember({obj.rois.single.name},rois{r}));
+%                     
+%                     roi_mask = obj.rois.single(roi_idx).mask;
+%                     
+%                     %%
+%                     %matrix of all coordinates
+%                     coords = double(vertcat(data{:}));
+%                     
+%                     
+%                     %creates a vector of the trial #, repeated for each
+%                     %fixation in that trial. Useful for putting our data
+%                     %back into the cell array format
+%                     trialnums = num2cell(1:length(data))';
+%                     numfixes = cellfun(@(x) size(x,1),data(:,1),'Uniform',false);
+%          
+%                     trial_vec = cellfun(@(x,y) repmat(y,x,1),numfixes,trialnums,'Uniform',false);    
+%                     trial_vec = vertcat(trial_vec{:});
+% 
+%                     %bad samples recoded as zero
+%                     coords(coords(:,1)>xres | coords(:,1)<=0 | isnan(coords(:,1)),1) = xres;
+%                     coords(coords(:,2)>yres | coords(:,2)<=0 | isnan(coords(:,2)),2) = yres;
+% 
+%                     coords = ceil(coords);
+%                     
+%                     %find all unique fixations
+%                     [ucoords,idx_u,idx_a] = unique(coords,'rows','stable');
+% 
+%                     scr = zeros(yres,xres);
+% 
+%                     %find the indicies of the fixations
+%                     idx = sub2ind([yres,xres],ucoords(:,2),ucoords(:,1));
+%                     scr(idx)=1:length(ucoords); 
+% 
+%                     fix_bin = logical(scr); %binary mask of fixations
+%                     overlap = (double(roi_mask+fix_bin)>1); %the overlap between the mask and the fixations
+% 
+%                     overlap = double(overlap).*scr;
+% 
+%                     overlap_idx = unique(overlap);
+%                     overlap_idx = overlap_idx(overlap_idx>0); %rows in ucoords that overlap with mask
+%                     
+%                     %now map this back to the original data (all fixations,
+%                     %not just the unique ones)
+%                     hits = idx_a(ismember(idx_a,overlap_idx));
+%                     hits_sub =zeros(length(ucoords),1);
+%                     hits_sub(hits)=1;
+%                     
+%                     %binary vector-- hit or not
+%                     hits_all=single(hits_sub(idx_a));
+% 
+%                     if isnumeric(rois{r})
+%                         name = strcat('roi_',num2str(rois{r}));
+%                     else
+%                         name = strcat('roi_',obj.rois.single(roi_idx).name);
+%                     end
+% 
+% 
+%                     %take our 1 big vector and split to a cell to put back
+%                     %in our array (1 cell for each trial)
+%                     hits_all = split_by_idx(hits_all,trial_vec);
+% 
+% 
+%                     [fixation_hits(1:length(hits_all)).(name)] = deal(hits_all{:});
+%                     
+%                 end
+%                 
+%                 %convert our fixation_hits structure to a cell. Why?
+%                 %because matlab is dumb.
+%                 temp = arrayfun(@(x) {x},fixation_hits);
+%                 
+%                 %now we can fill in our data
+%                 [obj.data{s}.fixation_hits] = deal(temp{:}); 
+%                 
+%             end
+%                
+%         end
         
         
         function varargout = subsref(obj,S)
@@ -2311,9 +2461,19 @@ classdef iTrack
             p = inputParser;
             p.addParameter('rois','all',@iscell);
             p.addParameter('indicator',{});
+            p.addParameter('type','fixations',@ischar);
             parse(p,varargin{:}); 
             
             numsubs = length(obj.subs);
+
+            
+            switch lower(p.Results.type)
+                case {'fixations'}
+                    fname = 'fixation_hits';
+                case {'saccades'}
+                    fname = 'saccade_end_hits';
+            end
+                        
             
             %indicator should be a cell array, 1 cell per subject
             %each cell has a row for each trial, with either a number or
@@ -2367,10 +2527,13 @@ classdef iTrack
                            roiname = [];
                        end
                    
+                       
+                       
+                       
                    if ~isempty(roiname)
-                        obj.data{s}(i).fixation_hits.(newName) = obj.data{s}(i).fixation_hits.(roiname);
+                        obj.data{s}(i).(fname).(newName) = obj.data{s}(i).fixation_hits.(roiname);
                    else
-                       obj.data{s}(i).fixation_hits.(newName) = single(nan(size(obj.data{s}(i).fixation_times,1),1));
+                       obj.data{s}(i).(fname).(newName) = single(nan(size(obj.data{s}(i).fixation_times,1),1));
                    end
                    
                    
