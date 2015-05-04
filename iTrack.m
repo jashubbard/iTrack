@@ -78,7 +78,7 @@ classdef iTrack
             %loop through all edfs
             for s=1:length(edfs)
                 
-                fname=edfs{s};
+                fname=GetFullPath(edfs{s});
                 
                 
                 %import edf file
