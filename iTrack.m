@@ -291,7 +291,7 @@ classdef iTrack
                 temp = fixdata(fixdata.(obj.subject_var)==obj.subs{s},:);
                 
                 figure;
-                scatter(temp.fix_x,temp.fix_y);
+                scatter(temp.fix_x,temp.fix_y,'fill');
                 
                 if p.Results.zoom
                     set(gca,'XLim',[-2,screenx+2]);
@@ -822,8 +822,10 @@ classdef iTrack
             
             
             if p.Results.fix
-                allData = build_dataset(obj,'beh',allfactors,'events',{dataVar},'fix',true,'rois',{p.Results.roi});
-                dataVar = strcat(p.Results.roi,'_',p.Results.dataVar);
+%                 allData = build_dataset(obj,'beh',allfactors,'events',{dataVar},'fix',true,'rois',{p.Results.roi});
+
+                 allData = report(obj,'epoched_fixations','behvars',allfactors,'events',{dataVar},'rois',p.Results.roi);
+                 dataVar = strcat(p.Results.dataVar,'_',p.Results.roi);
                 
             else
                 allData = build_dataset(obj,'beh',allfactors,'events',{dataVar});
@@ -864,7 +866,7 @@ classdef iTrack
             p.addParameter('events',[]);
             p.addParameter('behvars',{},@iscell);
             p.addParameter('search','');
-            p.addParameter('rois','all');
+            p.addParameter('rois',{});
             p.addParameter('fields',{},@iscell);
             parse(p,varargin{:});
             
@@ -1239,9 +1241,21 @@ classdef iTrack
             p.addParameter('vars',{},@iscell);
             p.addParameter('behvars',{},@iscell);
             p.addParameter('eyevars',{},@iscell);
-            p.addParameter('rois',{},@iscell);
+            p.addParameter('rois',{},@(x) iscell(x) || ischar(x));
+            p.addParameter('events',{},@(x) iscell(x) || ischar(x));
             parse(p,varargin{:});
             
+            if ~isa(p.Results.rois,'cell')
+                rois = {p.Results.rois};
+            else
+                rois = p.Results.rois;
+            end
+            
+             if ~isa(p.Results.events,'cell')
+                events = {p.Results.events};
+            else
+                events = p.Results.events;
+            end
             
            
             beh = get_new(obj,'beh','fields',p.Results.behvars);
@@ -1249,7 +1263,7 @@ classdef iTrack
                         
             switch p.Results.type
                 case {'fixations','saccades','blinks'}
-                    eyedata = get_new(obj,p.Results.type,'fields',p.Results.eyevars,'rois',p.Results.rois);
+                    eyedata = get_new(obj,p.Results.type,'fields',p.Results.eyevars,'rois',rois);
                     eyevars = eyedata.Properties.VariableNames(3:end);
                     data = outerjoin(beh,eyedata,'keys',{obj.subject_var,'eye_idx'},'MergeKeys',true);
                     data = data(:,horzcat(behvars,eyevars));
@@ -1257,8 +1271,35 @@ classdef iTrack
                     
                     eyedata = get_new(obj,'counts');
                     data = outerjoin(beh,eyedata,'keys',{obj.subject_var,'eye_idx'},'MergeKeys',true);
+                case {'epoched_fixations'}
                     
-                     
+                    %the number of the reults will be the events*rois
+                    allfix = cell(1,length(events)*length(rois));
+                    
+                    %get the fixations for each combination of events and
+                    %rois
+                    [allfix{:}] = get_new(obj,p.Results.type,'events',events,'rois',rois);
+                    
+                   
+                    
+                    %loop through events, then rois and store the result in
+                    %our table. 
+                    for e = 1:length(events)
+                        
+                        event = p.Results.events{e};
+                        
+                        for r = 1:length(rois)
+ 
+                            newname = strcat(event,'_',rois{r});
+                            
+                            beh.(newname) = allfix{:};
+
+                        end
+                    
+                        
+                    end
+                                       
+                     data = beh;
             end
                     
         end
@@ -1738,9 +1779,19 @@ classdef iTrack
                         
                     else
                         if (p.Results.behfield)
-                            eyeStruct(i).beh.(fieldname) = 'NaN';
+                            
+                            if p.Results.time 
+                                eyeStruct(i).beh.(fieldname) = NaN;
+                            else
+                                eyeStruct(i).beh.(fieldname) = 'NaN';
+                            end
                         else
-                            eyeStruct(i).(fieldname) = 'NaN';
+                            
+                            if p.Results.time
+                                eyeStruct(i).(fieldname) = NaN;
+                            else
+                                eyeStruct(i).(fieldname) = 'NaN';
+                            end
                         end
                     end
                     
@@ -1748,7 +1799,7 @@ classdef iTrack
                 end
                 
                 
-                if p.Results.striptext
+                if p.Results.striptext 
                     numvector=str2double(regexprep({eyeStruct.(fieldname)}','[a-z A-Z]',''));
                     numvector=num2cell(numvector);
                     [eyeStruct.(fieldname)] = deal(numvector{:});
@@ -1880,7 +1931,7 @@ classdef iTrack
             p.addRequired('type', @(x) ischar(x));
             p.addParameter('subjects',[],@(x) isnumeric(x) || iscell(x));
             p.addParameter('fields',{},@(x) iscell(x));
-            p.addParameter('rois',{},@(x) iscell(x));
+            p.addParameter('rois',{},@(x) iscell(x) || ischar(x));
             p.addParameter('rename',true);
             
             parse(p,varargin{:});
@@ -1909,7 +1960,9 @@ classdef iTrack
             temp = subsref(obj,S);
             
             
-
+            
+            
+        
             fnames = reshape(fieldnames(temp{1}{1}),1,[]);
 
             
@@ -2753,17 +2806,23 @@ classdef iTrack
             p.addParameter('overlay',false);
             parse(p,varargin{:});
            
-           alldata = build_dataset(obj,'beh',separate_by,'allfix',true,'rois',horzcat('xy',p.Results.rois));
-           alldata= alldata(~any(ismissing(alldata),2),:); %remove rows with any missing data
+%            alldata = build_dataset(obj,'beh',separate_by,'allfix',true,'rois',horzcat('xy',p.Results.rois));
+%            alldata= alldata(~any(ismissing(alldata),2),:); %remove rows with any missing data
+           
+            
+            alldata = report(obj,'fixations','behvars',separate_by,'rois',p.Results.rois);
+            alldata= alldata(~any(ismissing(alldata),2),:); %remove rows with any missing data
+            
+            
+           
            
            
            if ~isempty(p.Results.rois)
                separate_by = horzcat(separate_by,strcat(p.Results.rois,'_hit'));
            end
+
            
-           
-           
-           fixScatterplots(obj,alldata,separate_by,'x_coord','y_coord');
+           fixScatterplots(obj,alldata,separate_by,'fix_x','fix_y');
            
           placeFigures('intergapH',10,'intergapV',10,'toolsize',30)
             
