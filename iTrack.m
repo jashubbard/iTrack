@@ -2066,7 +2066,7 @@ classdef iTrack
                     
                     for fix=1:size(idxmat,1) %loop through each fixation
                        
-                      if ~isnan(fixdata{trial}(fix,1)) 
+                      if ~isnan(fixdata{trial}(fix,1)) && fixdata{trial}(fix,1)>0
                        idxmat(fix,fixdata{trial}(fix,1):fixdata{trial}(fix,2)) = 1; %mark the timepoints where the fixations occurred
                       end
                         
