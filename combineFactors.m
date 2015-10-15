@@ -1,7 +1,6 @@
 function [combined_factor, idx, varname] = combineFactors(allData,factors)
 
 
-
 if ~isa(factors,'cell')
     factors=cellstr(factors);
 end
@@ -15,7 +14,7 @@ for i=1:nvars
     
     col=allData.(factors{i});
     
-    if isa(col,'double') || isa(col,'logical')
+    if isnumeric(col) || isa(col,'logical')
         col=cellstr(num2str(col));
     end
     

@@ -1,7 +1,7 @@
 classdef iTrack
     
     properties
-%         fields={'subjects','beh','eyedata'};
+        %         fields={'subjects','beh','eyedata'};
         subs=cell(1,1);
         data=cell(1,1);
         raw=cell(1,1);
@@ -28,23 +28,23 @@ classdef iTrack
             
             
             %optionally you can give first argument as the filename or cell
-            %array of file names. 
+            %array of file names.
             if iscell(varargin{1}) %z = iTrack({'edf1.edf','edf2.edf'});
                 edfs = varargin{1};
                 parse(p,varargin{2:end});
-            
+                
             elseif exist(varargin{1},'file') % z = iTrack('edfname.edf');
                 edfs = {varargin{1}};
                 parse(p,varargin{2:end});
-            
+                
             else %this is if you say z = iTrack('edfs','edfname.edf')
                 parse(p,varargin{:});
                 edfs = p.Results.edfs;
             end
-
-                
             
-
+            
+            
+            
             
             obj.subject_var = p.Results.subject_var;
             
@@ -54,17 +54,17 @@ classdef iTrack
             obj.rois.combined = struct;
             
             
-                %1 argument, cell of file names including full path
+            %1 argument, cell of file names including full path
             if ~isempty(edfs)
                 path=pwd;
-                             
-               
+                
+                
                 
             else
                 %default, no arguments, prompt for edf files
                 [edfs, path] = uigetfile({'*.edf'},'select edf files','MultiSelect','on');
             end
-
+            
             cd(path);
             
             %if only 1 filename given
@@ -118,14 +118,14 @@ classdef iTrack
                 [x.fixation_times] = deal([]);
                 [x.fixation_time_mask] = deal([]);
                 [x.beh] = deal(struct);
-%                 [x.fixation_hits]  = deal([]);
+                %                 [x.fixation_hits]  = deal([]);
                 
                 obj.subs{s,1}=str2double(regexprep(fname,'[!@#$%^&()?"*+=-_'',./~` A-Za-z]','')); %subject number from filename, minus any funny characters
                 
                 %trials with no recorded fixations are empty [], but we want
                 %them to be structures with NaN's for each field - it makes
                 %life easier
-
+                
                 %create a blank structure for trials with no fixations
                 fnames = fieldnames([x.Fixations]); %fieldnames from fixation structure
                 
@@ -135,7 +135,7 @@ classdef iTrack
                     empty_struct.(fnames{f}) = NaN;
                 end
                 
-               
+                
                 %fill those trials with our empty struct
                 [x(cellfun(@isempty,{x.Fixations})).Fixations] = deal(empty_struct);
                 
@@ -149,11 +149,11 @@ classdef iTrack
                     empty_struct.(fnames{f}) = NaN;
                 end
                 
-               
+                
                 %fill those trials with our empty struct
                 [x(cellfun(@isempty,{x.Saccades})).Saccades] = deal(empty_struct);
                 
-                 
+                
                 %repeat for Blinks
                 fnames = fieldnames([x.Blinks]); %fieldnames from fixation structure
                 
@@ -163,12 +163,12 @@ classdef iTrack
                     empty_struct.(fnames{f}) = NaN;
                 end
                 
-               
+                
                 %fill those trials with our empty struct
                 [x(cellfun(@isempty,{x.Blinks})).Blinks] = deal(empty_struct);
                 
                 
-               
+                
                 %this transposes all the fixation data so it's 1 row per
                 %fixation, instead of column-wise
                 temp = arrayfun(@(y) structfun(@transpose,y,'Uniform',false),[x.Fixations],'Uniform',false);
@@ -205,16 +205,16 @@ classdef iTrack
                     x(i).numsamples = numsamples;
                     
                     
-                    %create a matrix of zeros for each trial that is 
+                    %create a matrix of zeros for each trial that is
                     % number fixations x  number of samples. Used for indexing fixation data
                     if ~isempty(x(i).Fixations)
-                       x(i).fixation_times =single(zeros(length(x(i).Fixations.sttime),x(i).numsamples));
+                        x(i).fixation_times =single(zeros(length(x(i).Fixations.sttime),x(i).numsamples));
                     end
                     
                     if p.Results.samples==1
-%                         temp=x(i).Samples;
-%                         x(i).index.raw=double(0:length(temp.pa(eye,:))-1);
-%                         x(i).numsamples=x(i).index.raw(end)+1;
+                        %                         temp=x(i).Samples;
+                        %                         x(i).index.raw=double(0:length(temp.pa(eye,:))-1);
+                        %                         x(i).numsamples=x(i).index.raw(end)+1;
                         x(i).pa=x(i).Samples.pa(eye,:);
                         x(i).gx=x(i).Samples.gx(eye,:);
                         x(i).gy=x(i).Samples.gy(eye,:);
@@ -230,14 +230,14 @@ classdef iTrack
                 x= rmfield(x,'Buttons'); %also remove this to save memory
                 
                 obj.raw{s,1}=x; %structure with all the information
-              
+                
                 clear x;
             end
             
             %copy everything from the raw structure into our "data"
             %structure. That way we can always revert back to the raw data
-            %without reloading edfs. 
-            obj.data=obj.raw; 
+            %without reloading edfs.
+            obj.data=obj.raw;
             
             if ~p.Results.keepraw
                 obj.raw = [];
@@ -257,61 +257,18 @@ classdef iTrack
         
         
         function obj=reset(obj)
-         %revert back to the raw data without reloading edfs. 
+            %revert back to the raw data without reloading edfs.
             obj.data=obj.raw;
             obj = index_fixations(obj);
-
+            
         end
-
         
-        function obj=quickview(obj,varargin)
-            
-            p = inputParser;
-            p.addParameter('zoom',false,@(x) islogical(x) || ismember(x,[0,1]));
-            p.addParameter('screen',true,@(x) islogical(x) || ismember(x,[0,1]));
-            parse(p,varargin{:});
+        
+        function obj = quickview(obj,varargin)
             
             
-            %get fixation x/y coordinates
-%             fixdata = build_dataset(obj,'allfix',true,'rois',{'xy'});
+            scatterplots(obj,{obj.subject_var},'overlay',true);
             
-            fixdata = get_new(obj,'fixations');
-           
-            numsubs=size(obj.data(:,1),1);
-            
-            %screen dimensions
-            screenx = obj.screen.dims(1);
-            screeny = obj.screen.dims(2);
-            xcenter = fix(screenx/2);
-            ycenter = fix(screeny/2);
-            
-            %create a figure for each subject
-            for s = 1:numsubs
-                
-                temp = fixdata(fixdata.(obj.subject_var)==obj.subs{s},:);
-                
-                figure;
-                scatter(temp.fix_x,temp.fix_y,'fill');
-                
-                if p.Results.zoom
-                    set(gca,'XLim',[-2,screenx+2]);
-                    set(gca,'YLim',[-2,screeny+2]);   
-                end
-                
-                
-                %draw a red rectangle where the screen was, and a dot at
-                %the center for reference
-                if p.Results.screen
-                rectangle('Position',[1,1,screenx,screeny],'EdgeColor','r');
-                rectangle('Position',[xcenter,ycenter,10,10],'FaceColor','r','Curvature',[1,1]);
-                end
-                
-                %make 0,0 at upper-left so it matches psychtoolbox
-                set(gca, 'YDir', 'reverse');
-                title(obj.subs{s});
-            end
-            
-            placeFigures;
             
         end
         
@@ -328,9 +285,9 @@ classdef iTrack
             
             
             if ~isempty(p.Results.index)
-               index_vars = p.Results.index; 
+                index_vars = p.Results.index;
             else
-               index_vars = {};
+                index_vars = {};
             end
             
             
@@ -340,10 +297,10 @@ classdef iTrack
             %table)
             
             if isa(behFile,'table')
-                 behDS = behFile;
+                behDS = behFile;
             elseif isa(behFile,'dataset')
-                 behDS = dataset2table(behFile);
-            
+                behDS = dataset2table(behFile);
+                
             elseif exist(behFile,'file')
                 [~,~,ext] = fileparts(behFile);
                 
@@ -353,7 +310,7 @@ classdef iTrack
                     case {'.csv'} %assumes comma-delimited with header row
                         behDS = readtable(behFile,'Delimiter',',');
                 end
-           
+                
             end
             
             
@@ -361,9 +318,9 @@ classdef iTrack
             if p.Results.append
                 [~,existing_vars] = get_all_fields(obj);
                 newvars = setdiff(behDS.Properties.VariableNames,existing_vars);
-            
+                
             end
-
+            
             
             
             for s=1:numsubs
@@ -392,7 +349,7 @@ classdef iTrack
                         
                     end
                     
-
+                    
                     
                     joinedDS=outerjoin(eyeDS,behSubset,'Keys',horzcat(obj.subject_var,index_vars),'MergeKeys',true);
                 else
@@ -409,7 +366,7 @@ classdef iTrack
                 
                 
                 
-                joinedDS = sortrows(joinedDS,'eye_idx');                
+                joinedDS = sortrows(joinedDS,'eye_idx');
                 joinedDS = table2struct(joinedDS);
                 
                 for i = 1:length(eyeStruct)
@@ -422,21 +379,21 @@ classdef iTrack
                             if p.Results.addevent
                                 
                                 if ~isnan(joinedDS(i).(newvars{v})) %if missing data, don't add the event!
-                                eyeStruct(i).events.message{end+1}=newvars{v};
-                                eyeStruct(i).events.time(end+1)=joinedDS(i).(newvars{v});
+                                    eyeStruct(i).events.message{end+1}=newvars{v};
+                                    eyeStruct(i).events.time(end+1)=joinedDS(i).(newvars{v});
                                 end
                                 
-                            else    
-                            
-                            eyeStruct(i).beh.(newvars{v}) = joinedDS(i).(newvars{v});
-                            
+                            else
+                                
+                                eyeStruct(i).beh.(newvars{v}) = joinedDS(i).(newvars{v});
+                                
                             end
                         end
                     else
                         eyeStruct(i).beh = joinedDS(i);
                     end
-                end     
-                    
+                end
+                
                 obj.data{s}=eyeStruct;
                 
                 
@@ -483,12 +440,12 @@ classdef iTrack
                                 eyeStruct(i).pa=interp(eyeStruct(i).pa,interp_factor);
                                 eyeStruct(i).gx=interp(eyeStruct(i).gx,interp_factor);
                                 eyeStruct(i).gy=interp(eyeStruct(i).gy,interp_factor);
-%                                 eyeStruct(i).onsets.time = fix(eyeStruct(i).onsets.time.*interp_factor);
+                                %                                 eyeStruct(i).onsets.time = fix(eyeStruct(i).onsets.time.*interp_factor);
                             case {'down'}
                                 eyeStruct(i).pa=downsample(eyeStruct(i).pa,interp_factor);
                                 eyeStruct(i).gx=downsample(eyeStruct(i).gx,interp_factor);
                                 eyeStruct(i).gy=downsample(eyeStruct(i).gy,interp_factor);
-%                                 eyeStruct(i).onsets.time = fix(eyeStruct(i).onsets.time.*interp_factor);
+                                %                                 eyeStruct(i).onsets.time = fix(eyeStruct(i).onsets.time.*interp_factor);
                         end
                         
                         
@@ -500,17 +457,17 @@ classdef iTrack
                     
                     
                     fprintf('Subject %d complete\n',s);
-                
+                    
                 else
                     
                     for i=1:length(eyeStruct)
                         
-                    eyeStruct(i).rawsample.pa=eyeStruct(i).pa;
-                    eyeStruct(i).rawsample.gx=eyeStruct(i).gx;
-                    eyeStruct(i).rawsample.gy=eyeStruct(i).gy;
-                    
+                        eyeStruct(i).rawsample.pa=eyeStruct(i).pa;
+                        eyeStruct(i).rawsample.gx=eyeStruct(i).gx;
+                        eyeStruct(i).rawsample.gy=eyeStruct(i).gy;
+                        
                     end
-                
+                    
                 end
                 
                 obj.data{s}=eyeStruct;
@@ -524,7 +481,7 @@ classdef iTrack
         
         
         
-     
+        
         
         function obj=baseline(obj,baseline_times,varargin)
             p = inputParser;
@@ -535,13 +492,13 @@ classdef iTrack
             parse(p,varargin{:});
             
             
-
+            
             
             
             
             numsubs=size(obj.data(:,1));
             
-
+            
             
             for s=1:numsubs
                 
@@ -554,7 +511,7 @@ classdef iTrack
                     
                     sr_fraction = eyeStruct(1).sample_rate/1000;
                     
-                    baseline_interval = [baseline_times(1)*sr_fraction:baseline_times(end)*sr_fraction]; 
+                    baseline_interval = [baseline_times(1)*sr_fraction:baseline_times(end)*sr_fraction];
                 else
                     baseline_interval = baseline_times;
                     
@@ -575,26 +532,26 @@ classdef iTrack
                     end
                     
                     
-                        switch(p.Results.func)
-                            case {'mean'}
-                                baseline=nanmean(pupildata(baseline_interval));
-                            case {'mad'}
-                                baseline=mad(pupildata(baseline_interval));
-                        end
-
-%                     allsd = nanstd(pupildata(baseline_times(end):end));
+                    switch(p.Results.func)
+                        case {'mean'}
+                            baseline=nanmean(pupildata(baseline_interval));
+                        case {'mad'}
+                            baseline=mad(pupildata(baseline_interval));
+                    end
+                    
+                    %                     allsd = nanstd(pupildata(baseline_times(end):end));
                     
                     numsamples = length(baseline_interval);
                     
                     %if entire baseline period is empty, OR the baseline mean is greater than
                     %20 SDs away from the rest of the data (from an artifact)
-    %                     if isnan(baseline) || abs(baseline - nanmean(pupildata(min(length(eyeStruct(i).pa),baseline_times(end)+1):end))) >= (2.0 * allsd)
+                    %                     if isnan(baseline) || abs(baseline - nanmean(pupildata(min(length(eyeStruct(i).pa),baseline_times(end)+1):end))) >= (2.0 * allsd)
                     if isnan(baseline)
-%                         pupildata(:) = NaN; %throw out everything
+                        %                         pupildata(:) = NaN; %throw out everything
                         
                         %this attempts to fix things, but doesn't work under certain situations
-                           firstsample=find(pupildata,1,'first');
-                           baseline = nanmean(pupildata(firstsample:(firstsample+numsamples-1)));
+                        firstsample=find(pupildata,1,'first');
+                        baseline = nanmean(pupildata(firstsample:(firstsample+numsamples-1)));
                         
                     end
                     
@@ -619,12 +576,12 @@ classdef iTrack
                 end
                 
                 
-%                 padata=NaN;
+                %                 padata=NaN;
                 
                 
                 
                 
-                obj.data{s}=eyeStruct;                
+                obj.data{s}=eyeStruct;
                 
             end
             
@@ -691,7 +648,7 @@ classdef iTrack
             lineup_var = p.Results.event;
             
             
-           
+            
             
             
             numsubs=length(obj.subs);
@@ -701,74 +658,74 @@ classdef iTrack
                 
                 eyeStruct=obj.data{s};
                 
-             for r = 1:length(p.Results.rois)   
-                for t=1:length(eyeStruct)
-                    
-                    trial=eyeStruct(t);
-                    
-                    
-                    if ~all(isnan(trial.index.(lineup_var)))
+                for r = 1:length(p.Results.rois)
+                    for t=1:length(eyeStruct)
                         
-                        %                         startwindow=find(window(1)==trial.index.(lineup_var));
-                        %                         endwindow=find(window(end)==trial.index.(lineup_var));
-                        %%
-                        startwindow=find(trial.index.(lineup_var)==((before_lineup-1)*-1)); %time of event is 0, so 500 ms before would be coded as -499 (NOT -500), hence the -1
-                        endwindow=find(trial.index.(lineup_var)==after_lineup);
+                        trial=eyeStruct(t);
                         
-%%
                         
-                        switch p.Results.type
-                            case {'baselined'}
-                                newdata=trial.pa_baselined;
-                            case {'raw'}
-                                newdata=trial.pa;
-                            case {'fix'}
-                                newdata=trial.fix;
-                                newdata = newdata.(p.Results.rois{r});
+                        if ~all(isnan(trial.index.(lineup_var)))
+                            
+                            %                         startwindow=find(window(1)==trial.index.(lineup_var));
+                            %                         endwindow=find(window(end)==trial.index.(lineup_var));
+                            %%
+                            startwindow=find(trial.index.(lineup_var)==((before_lineup-1)*-1)); %time of event is 0, so 500 ms before would be coded as -499 (NOT -500), hence the -1
+                            endwindow=find(trial.index.(lineup_var)==after_lineup);
+                            
+                            %%
+                            
+                            switch p.Results.type
+                                case {'baselined'}
+                                    newdata=trial.pa_baselined;
+                                case {'raw'}
+                                    newdata=trial.pa;
+                                case {'fix'}
+                                    newdata=trial.fix;
+                                    newdata = newdata.(p.Results.rois{r});
+                            end
+                            
+                            if isempty(startwindow)
+                                difference=abs(double(trial.index.(lineup_var)(1))-((before_lineup-1)*-1));
+                                newdata=horzcat(nan(1,difference),newdata);
+                                startwindow=1;
+                                endwindow=endwindow+difference;
+                            end
+                            
+                            
+                            if isempty(endwindow)
+                                %                             difference=abs(window(end)-varidx(end));
+                                difference=abs(double(trial.index.(lineup_var)(end))-after_lineup);
+                                newdata=horzcat(newdata,nan(1,difference));
+                                endwindow=length(newdata); %-1 here?
+                            end
+                            
+                            
+                            newdata=newdata(startwindow:endwindow);
+                            
+                            if length(newdata) ~= length((before_lineup-1)*-1:(after_lineup));
+                                fprintf('Warning: subject %d, trial %d has length of %d\n',obj.subs{s},t,length(newdata));
+                            end
+                            
+                        else %if event isn't found, just write NaNs
+                            
+                            window=((before_lineup-1)*-1):(after_lineup);
+                            window_width=length(window);
+                            newdata=nan(1,window_width);
                         end
                         
-                        if isempty(startwindow)
-                            difference=abs(double(trial.index.(lineup_var)(1))-((before_lineup-1)*-1));
-                            newdata=horzcat(nan(1,difference),newdata);
-                            startwindow=1;
-                            endwindow=endwindow+difference;
+                        if ~strcmp(p.Results.type,'fix')
+                            eyeStruct(t).windows.(lineup_var)=[before_lineup*-1, after_lineup];
+                            eyeStruct(t).aligned.(lineup_var)=newdata;
+                        else
+                            eyeStruct(t).fix_windows.(lineup_var)=[before_lineup*-1, after_lineup];
+                            eyeStruct(t).fix_aligned.(lineup_var).(p.Results.rois{r})=newdata;
+                            
                         end
                         
                         
-                        if isempty(endwindow)
-                            %                             difference=abs(window(end)-varidx(end));
-                            difference=abs(double(trial.index.(lineup_var)(end))-after_lineup);
-                            newdata=horzcat(newdata,nan(1,difference));
-                            endwindow=length(newdata); %-1 here?
-                        end
-                        
-                        
-                        newdata=newdata(startwindow:endwindow);
-                        
-                        if length(newdata) ~= length((before_lineup-1)*-1:(after_lineup));
-                            fprintf('Warning: subject %d, trial %d has length of %d\n',obj.subs{s},t,length(newdata));
-                        end
-                        
-                    else %if event isn't found, just write NaNs
-                        
-                        window=((before_lineup-1)*-1):(after_lineup);
-                        window_width=length(window);
-                        newdata=nan(1,window_width);
                     end
-                    
-                    if ~strcmp(p.Results.type,'fix')
-                        eyeStruct(t).windows.(lineup_var)=[before_lineup*-1, after_lineup];
-                        eyeStruct(t).aligned.(lineup_var)=newdata;
-                    else
-                        eyeStruct(t).fix_windows.(lineup_var)=[before_lineup*-1, after_lineup];
-                        eyeStruct(t).fix_aligned.(lineup_var).(p.Results.rois{r})=newdata;
-                    
-                    end
-                    
                     
                 end
-                
-            end
                 obj.data{s}=eyeStruct;
                 
                 
@@ -781,10 +738,10 @@ classdef iTrack
         
         
         function allfigdata = linePlots(obj,varargin)
-           %wrapper function for linePlots (which can be used
-           %independently)
-           %give it variables for separating plots (plotVars) and for
-           %separating lines (lineVars), and the data that you want (dataVar)
+            %wrapper function for linePlots (which can be used
+            %independently)
+            %give it variables for separating plots (plotVars) and for
+            %separating lines (lineVars), and the data that you want (dataVar)
             p = inputParser;
             p.addParameter('plotVars',{},@iscell);
             p.addParameter('lineVars',{},@iscell);
@@ -822,10 +779,9 @@ classdef iTrack
             
             
             if p.Results.fix
-%                 allData = build_dataset(obj,'beh',allfactors,'events',{dataVar},'fix',true,'rois',{p.Results.roi});
 
-                 allData = report(obj,'epoched_fixations','behvars',allfactors,'events',{dataVar},'rois',p.Results.roi);
-                 dataVar = strcat(p.Results.dataVar,'_',p.Results.roi);
+                allData = report(obj,'epoched_fixations','behvars',allfactors,'events',{dataVar},'rois',p.Results.roi);
+                dataVar = strcat(p.Results.dataVar,'_',p.Results.roi);
                 
             else
                 allData = build_dataset(obj,'beh',allfactors,'events',{dataVar});
@@ -912,7 +868,7 @@ classdef iTrack
                     data = array2table(datamat,'VariableNames',{obj.subject_var,'eye_idx'});
                     
                     varargout{1} = data;
-                
+                    
                 case {'counts'}
                     %getting the number of fixations, saccades, blinks, and
                     %samples per trial .
@@ -970,7 +926,7 @@ classdef iTrack
                     end
                     
                     outputs = cell(1,length(events));
-                   
+                    
                     
                     temp = subsref(obj,struct('type','.','subs','aligned'));
                     temp = vertcat(temp{:});
@@ -1015,7 +971,7 @@ classdef iTrack
                         temp_event = vertcat(temp_event{:});
                         
                         for r = 1:length(rois)
-                           
+                            
                             varargout{count} = vertcat(temp_event.(rois{r}));
                             count = count+1;
                         end
@@ -1023,34 +979,34 @@ classdef iTrack
                         
                     end
                     
-           
+                    
             end
             
             
         end
-            
+        
         
         
         function [data,datamat]=get(obj,varargin)
-           %generic function for pulling data from iTrack objects
-           %options are:
-           %'aligned' - epoched data, lined up to some event
-           %'raw' - raw pupil data
-           %'allfix' - data for every fixation
-           %'messages' - all events that are sent to eyelink during the experiment
-           %
-           % returns 2 outputs- first is a N x 2 cell array for every
-           % subject. First column is a vector of subject's ID, second
-           % column is the requested data for that subject. 
-           % in some cases it also returns a matrix of the requested data,
-           % with the first column being the subject ID. 
-           %
-           % [dataCell, dataMat] = get(obj,'aligned','event','STIMONSET');
-           % [dataCell, dataMat] = get(obj,'raw');
-           
+            %generic function for pulling data from iTrack objects
+            %options are:
+            %'aligned' - epoched data, lined up to some event
+            %'raw' - raw pupil data
+            %'allfix' - data for every fixation
+            %'messages' - all events that are sent to eyelink during the experiment
+            %
+            % returns 2 outputs- first is a N x 2 cell array for every
+            % subject. First column is a vector of subject's ID, second
+            % column is the requested data for that subject.
+            % in some cases it also returns a matrix of the requested data,
+            % with the first column being the subject ID.
+            %
+            % [dataCell, dataMat] = get(obj,'aligned','event','STIMONSET');
+            % [dataCell, dataMat] = get(obj,'raw');
+            
             p = inputParser;
             p.addRequired('item');
-%             p.addRequired('eyevars');
+            %             p.addRequired('eyevars');
             p.addParameter('event',[]);
             p.addParameter('behvars',{},@iscell);
             p.addParameter('search','');
@@ -1066,7 +1022,7 @@ classdef iTrack
             data=cell(numsubs,2);
             
             %if we're getting all fixation data, this only needs to be
-            %called once. 
+            %called once.
             if ~isempty(p.Results.roi)
                 if strcmp(p.Results.roi,'xy')
                     temp_allfix = get_eyeEvents(obj,'fixations','fields',{'gavx','gavy'});
@@ -1080,7 +1036,7 @@ classdef iTrack
             
             if strcmp(p.Results.item,'allsacc')
                 temp_allsacc = get_eyeEvents(obj,'saccades','fields',...
-                         {'sttime','entime','time','gstx','gsty','genx','geny','avel','pvel','ampl','phi'});                         
+                    {'sttime','entime','time','gstx','gsty','genx','geny','avel','pvel','ampl','phi'});
             end
             
             
@@ -1118,19 +1074,19 @@ classdef iTrack
                             
                         end
                     case {'events'}
-                                                
+                        
                         all_messages = arrayfun(@(x) x.events.message',obj.data{s},'Uniform',false);
                         all_times = arrayfun(@(x) x.events.time',obj.data{s},'Uniform',false);
-%                         temp = horzcat(all_messages{:})'; %for stacking
-%                         all messages with no organization
+                        %                         temp = horzcat(all_messages{:})'; %for stacking
+                        %                         all messages with no organization
                         temp = all_messages';
                         all_times = all_times';
-
-
+                        
+                        
                         if nargin>2
                             search_exp = p.Results.search;
                             
-%                             all_matches = ~cellfun(@isempty,regexp(temp,search_exp));
+                            %                             all_matches = ~cellfun(@isempty,regexp(temp,search_exp));
                             
                             temp2 = cell(size(temp,1),2);
                             
@@ -1148,20 +1104,20 @@ classdef iTrack
                             
                             temp = temp2;
                         end
-                      case {'allfix'}
-                       
-                          %getting the xy data or timing data is a special
-                          %case
-                          
-                          if strcmp(p.Results.roi,'xy') || strcmp(p.Results.roi,'time')
-                              temp = temp_allfix{s};
-                              
-                          else
-                              temp= obj.data{s};
-                              temp = [temp.fixation_hits];
-                              temp = reshape({temp.(p.Results.roi)},[],1);
-                          end
-                    
+                    case {'allfix'}
+                        
+                        %getting the xy data or timing data is a special
+                        %case
+                        
+                        if strcmp(p.Results.roi,'xy') || strcmp(p.Results.roi,'time')
+                            temp = temp_allfix{s};
+                            
+                        else
+                            temp= obj.data{s};
+                            temp = [temp.fixation_hits];
+                            temp = reshape({temp.(p.Results.roi)},[],1);
+                        end
+                        
                 end
                 
                 
@@ -1181,17 +1137,17 @@ classdef iTrack
                     datamat=nan(nrows,ncols);
                     
                     for i=1:size(data,1)
-                       difference= ncols-size(data{i,2},2);
-                       
-                       padding=nan(size(data{i,2},1),difference);
-                       
-                       data{i,2} = horzcat(data{i,2},padding);
+                        difference= ncols-size(data{i,2},2);
+                        
+                        padding=nan(size(data{i,2},1),difference);
+                        
+                        data{i,2} = horzcat(data{i,2},padding);
                         
                     end
                     
                     datamat=cell2mat(vertcat(data(:,:)));
                     
-
+                    
                 case {'messages'}
                     
                     all_subs = vertcat(data{:,1});
@@ -1211,7 +1167,7 @@ classdef iTrack
                         
                         
                         if isa(msg,'char') && ~isempty(msg)
-                         
+                            
                             num = str2double(msg(regexp(msg,'[\d.]')));
                             
                             if ~isempty(num)
@@ -1220,16 +1176,16 @@ classdef iTrack
                         elseif isa(msg,'double') && ~isempty(msg)
                             datamat(i,2) = msg;
                         end
-                            
+                        
                     end
                 case {'allfix','allsacc'}
                     datamat = [];
-                        
+                    
                 otherwise
                     datamat=cell2mat(vertcat(data(:,:)));
             end
             
-          
+            
             
             
         end
@@ -1251,16 +1207,16 @@ classdef iTrack
                 rois = p.Results.rois;
             end
             
-             if ~isa(p.Results.events,'cell')
+            if ~isa(p.Results.events,'cell')
                 events = {p.Results.events};
             else
                 events = p.Results.events;
             end
             
-           
+            
             beh = get_new(obj,'beh','fields',p.Results.behvars);
             behvars = beh.Properties.VariableNames;
-                        
+            
             switch p.Results.type
                 case {'fixations','saccades','blinks'}
                     eyedata = get_new(obj,p.Results.type,'fields',p.Results.eyevars,'rois',rois);
@@ -1280,34 +1236,34 @@ classdef iTrack
                     %rois
                     [allfix{:}] = get_new(obj,p.Results.type,'events',events,'rois',rois);
                     
-                   
+                    
                     
                     %loop through events, then rois and store the result in
-                    %our table. 
+                    %our table.
                     for e = 1:length(events)
                         
                         event = p.Results.events{e};
                         
                         for r = 1:length(rois)
- 
+                            
                             newname = strcat(event,'_',rois{r});
                             
                             beh.(newname) = allfix{:};
-
+                            
                         end
-                    
+                        
                         
                     end
-                                       
-                     data = beh;
-            end
                     
+                    data = beh;
+            end
+            
         end
-            
-            
-
         
-               
+        
+        
+        
+        
         
         function dataDS=build_dataset(obj,varargin)
             
@@ -1330,13 +1286,13 @@ classdef iTrack
                 eyevars={eyevars};
             end
             
-       
-%             allsubdata = cellfun(@(x) [x.beh]',obj.data,'Uniform',false);
-%             allsubdata = vertcat(allsubdata{:});
-%             behdata = stack_structarray(allsubdata);
-
+            
+            %             allsubdata = cellfun(@(x) [x.beh]',obj.data,'Uniform',false);
+            %             allsubdata = vertcat(allsubdata{:});
+            %             behdata = stack_structarray(allsubdata);
+            
             behdata = get_new(obj,'beh');
-
+            
             %by default, grab all behavioral data. Otherwise, specify
             %variables
             if isempty(p.Results.beh)
@@ -1349,85 +1305,101 @@ classdef iTrack
             for v=1:length(eyevars)
                 
                 if p.Results.raw
-                        %for grabbing raw pupil data
-                        [~, temp] = get(obj,'raw');
-                        fname = eyevars{v};
+                    %for grabbing raw pupil data
+                    [~, temp] = get(obj,'raw');
+                    fname = eyevars{v};
                     
-%                 elseif p.Results.allfix
-%                         %for grabbing all fixation data (multiple fixations
-%                         %per trial
-%                         temptable = table;
-%                         
-%                         for r=1:length(p.Results.rois)
-%                             
-%                             if ~strcmp(p.Results.rois{r},'xy') && ~strcmp(p.Results.rois{r},'time')
-%                                 roiname = strcat('roi_',p.Results.rois{r});
-%                                 suffix = '_hit';
-%                             else
-%                                 roiname = p.Results.rois{r};
-%                                 suffix = '';
-%                             end
-%                             
-%                             temp = get(obj,'allfix','roi',roiname);
-%                             fname = strcat(strrep(p.Results.rois{r},'roi_',''),suffix);
-%                             
-%                             if strcmp(p.Results.rois{r},'xy')
-%                                 temptable.x_coord = cellfun(@(x) x(:,1),vertcat(temp{:,2}),'Uniform',false);
-%                                 temptable.y_coord = cellfun(@(x) x(:,2),vertcat(temp{:,2}),'Uniform',false);
-%                             elseif strcmp(p.Results.rois{r},'time')
-%                                 temptable.fixstart = cellfun(@(x) x(:,1),vertcat(temp{:,2}),'Uniform',false);
-%                                 temptable.fixend = cellfun(@(x) x(:,2),vertcat(temp{:,2}),'Uniform',false);
-%                             else
-%                                 temptable.(fname) = vertcat(temp{:,2});
-%                             end
-%                         end
-%                         
-%                         %grab behavioral data
-%                         tempbeh = table2cell(dataDS);
-%                         
-%                         %figure out how many fixations per trial
-%                         numfixes = cellfun(@(x) size(x,1),temptable{:,1},'Uniform',false);
-%                         numfixes = repmat(numfixes,1,size(tempbeh,2)+1);
-%                         
-%                         %add the column for "numfixes" that gets replicated
-%                         %for each trial (like all other behavioral data)
-%                         tempbeh = horzcat(tempbeh,numfixes(:,1));
-%                         
-%                         %create 1:num_fix for each trial
-%                         fix_idx = cellfun(@(x) [1:x]',numfixes(:,1),'Uniform',false);
-%                         
-%                         
-%                         %replicate behavioral data for each fixation
-%                         tempbeh = cellfun(@(x,y) repmat(x,y,1),tempbeh,numfixes,'Uniform',false);
-%                         
-%                         %add the 1:num_fix column at the end
-%                         tempbeh = horzcat(tempbeh,fix_idx);
-%                         
-%                         %turn into a table
-%                         tempbeh = cell2table(tempbeh,'VariableNames',horzcat(dataDS.Properties.VariableNames,'numfix','fix_idx'));
-%                         
-%                         %remove any variables that are common to the
-%                         %behavioral and the eye data
-%                         common_vars = intersect(tempbeh.Properties.VariableNames,temptable.Properties.VariableNames);
-%                         
-%                         if ~isempty(common_vars)
-%                             tempbeh(:,common_vars) = [];
-%                         end
-%                         
-%                         %combine the tables
-%                         temptable = horzcat(tempbeh,temptable);
-%                         
-%                         %create "flat" columns for each
-%                         dataDS = varfun(@(x) vertcat(x{:}),temptable);
-%                         dataDS.Properties.VariableNames = temptable.Properties.VariableNames;
-                 
-                
+                    %                 elseif p.Results.allfix
+                    %                         %for grabbing all fixation data (multiple fixations
+                    %                         %per trial
+                    %                         temptable = table;
+                    %
+                    %                         for r=1:length(p.Results.rois)
+                    %
+                    %                             if ~strcmp(p.Results.rois{r},'xy') && ~strcmp(p.Results.rois{r},'time')
+                    %                                 roiname = strcat('roi_',p.Results.rois{r});
+                    %                                 suffix = '_hit';
+                    %                             else
+                    %                                 roiname = p.Results.rois{r};
+                    %                                 suffix = '';
+                    %                             end
+                    %
+                    %                             temp = get(obj,'allfix','roi',roiname);
+                    %                             fname = strcat(strrep(p.Results.rois{r},'roi_',''),suffix);
+                    %
+                    %                             if strcmp(p.Results.rois{r},'xy')
+                    %                                 temptable.x_coord = cellfun(@(x) x(:,1),vertcat(temp{:,2}),'Uniform',false);
+                    %                                 temptable.y_coord = cellfun(@(x) x(:,2),vertcat(temp{:,2}),'Uniform',false);
+                    %                             elseif strcmp(p.Results.rois{r},'time')
+                    %                                 temptable.fixstart = cellfun(@(x) x(:,1),vertcat(temp{:,2}),'Uniform',false);
+                    %                                 temptable.fixend = cellfun(@(x) x(:,2),vertcat(temp{:,2}),'Uniform',false);
+                    %                             else
+                    %                                 temptable.(fname) = vertcat(temp{:,2});
+                    %                             end
+                    %                         end
+                    %
+                    %                         %grab behavioral data
+                    %                         tempbeh = table2cell(dataDS);
+                    %
+                    %                         %figure out how many fixations per trial
+                    %                         numfixes = cellfun(@(x) size(x,1),temptable{:,1},'Uniform',false);
+                    %                         numfixes = repmat(numfixes,1,size(tempbeh,2)+1);
+                    %
+                    %                         %add the column for "numfixes" that gets replicated
+                    %                         %for each trial (like all other behavioral data)
+                    %                         tempbeh = horzcat(tempbeh,numfixes(:,1));
+                    %
+                    %                         %create 1:num_fix for each trial
+                    %                         fix_idx = cellfun(@(x) [1:x]',numfixes(:,1),'Uniform',false);
+                    %
+                    %
+                    %                         %replicate behavioral data for each fixation
+                    %                         tempbeh = cellfun(@(x,y) repmat(x,y,1),tempbeh,numfixes,'Uniform',false);
+                    %
+                    %                         %add the 1:num_fix column at the end
+                    %                         tempbeh = horzcat(tempbeh,fix_idx);
+                    %
+                    %                         %turn into a table
+                    %                         tempbeh = cell2table(tempbeh,'VariableNames',horzcat(dataDS.Properties.VariableNames,'numfix','fix_idx'));
+                    %
+                    %                         %remove any variables that are common to the
+                    %                         %behavioral and the eye data
+                    %                         common_vars = intersect(tempbeh.Properties.VariableNames,temptable.Properties.VariableNames);
+                    %
+                    %                         if ~isempty(common_vars)
+                    %                             tempbeh(:,common_vars) = [];
+                    %                         end
+                    %
+                    %                         %combine the tables
+                    %                         temptable = horzcat(tempbeh,temptable);
+                    %
+                    %                         %create "flat" columns for each
+                    %                         dataDS = varfun(@(x) vertcat(x{:}),temptable);
+                    %                         dataDS.Properties.VariableNames = temptable.Properties.VariableNames;
+                    
+                    
+                    
+                else
+                    %default - we get epoched pupil data
+                    if p.Results.fix==false
+                        [~,temp]=get(obj,'aligned','event',eyevars{v});
+                        fname = eyevars{v};
+                        
+                        if ~isempty(p.Results.downsample)
+                            dataDS.(fname)=downsample(temp(:,2:end)',p.Results.downsample)';
+                        else
+                            dataDS.(fname)=temp(:,2:end);
+                        end
+                        
+                        dataDS.(strcat(fname,'_window_start')) = repmat(obj.data{1}(1).windows.(fname)(1),height(dataDS),1);
+                        dataDS.(strcat(fname,'_window_end')) = repmat(obj.data{1}(1).windows.(fname)(2),height(dataDS),1);
                         
                     else
-                        %default - we get epoched pupil data
-                        if p.Results.fix==false
-                            [~,temp]=get(obj,'aligned','event',eyevars{v});
-                            fname = eyevars{v};
+                        %if fix==true, we get epoched fixation data
+                        
+                        for r=1:length(p.Results.rois)
+                            [~,temp]=get(obj,'aligned','fix',true,'event',eyevars{v},'roi',p.Results.rois{r});
+                            fname = [p.Results.rois{r},'_',eyevars{v}];
                             
                             if ~isempty(p.Results.downsample)
                                 dataDS.(fname)=downsample(temp(:,2:end)',p.Results.downsample)';
@@ -1435,36 +1407,20 @@ classdef iTrack
                                 dataDS.(fname)=temp(:,2:end);
                             end
                             
-                            dataDS.(strcat(fname,'_window_start')) = repmat(obj.data{1}(1).windows.(fname)(1),height(dataDS),1);
-                            dataDS.(strcat(fname,'_window_end')) = repmat(obj.data{1}(1).windows.(fname)(2),height(dataDS),1);
-                            
-                        else
-                           %if fix==true, we get epoched fixation data 
-                           
-                            for r=1:length(p.Results.rois)
-                                [~,temp]=get(obj,'aligned','fix',true,'event',eyevars{v},'roi',p.Results.rois{r});
-                                fname = [p.Results.rois{r},'_',eyevars{v}];
-                                
-                                if ~isempty(p.Results.downsample)
-                                    dataDS.(fname)=downsample(temp(:,2:end)',p.Results.downsample)';
-                                else
-                                    dataDS.(fname)=temp(:,2:end);
-                                end
-                                
-                                
-                            end
-                            
-                            dataDS.(strcat(fname,'_window_start')) = repmat(obj.data{1}(1).fix_windows.(eyevars{v})(1),height(dataDS),1);
-                            dataDS.(strcat(fname,'_window_end')) = repmat(obj.data{1}(1).fix_windows.(eyevars{v})(2),height(dataDS),1);
                             
                         end
                         
+                        dataDS.(strcat(fname,'_window_start')) = repmat(obj.data{1}(1).fix_windows.(eyevars{v})(1),height(dataDS),1);
+                        dataDS.(strcat(fname,'_window_end')) = repmat(obj.data{1}(1).fix_windows.(eyevars{v})(2),height(dataDS),1);
                         
+                    end
+                    
+                    
                 end
                 
                 
                 
-            end               
+            end
         end
         
         
@@ -1489,149 +1445,149 @@ classdef iTrack
             
             
             numsubs=size(obj.data(:,1),1);
-           
+            
             for s=1:numsubs
-                 eyeStruct=obj.data{s};
-                                            
-            
-            fprintf('removing artifacts for subject %d out of %d\n',s,numsubs);
-
-            if p.Results.filter_blinks==1 %this needs to be first!
-                fprintf('...filtering blinks...\n');
-                
-                [eyeStruct,~,~] = pupil_filter_blinks(eyeStruct,0);
-                
-            end
-            
-            
-            if p.Results.EL_blinks==1
-                fprintf('...removing blinks based on EyeLink data...\n');
-                
-                %first remove blinks based on what EyeLink records..
-                [eyeStruct,~] = pupil_remove_blinks(eyeStruct);
+                eyeStruct=obj.data{s};
                 
                 
-                %it's not perfect, so we use some secret sauce..
-                %a peak-to-peak sliding window algorithm
-                blink_window = p.Results.blink_window * (eyeStruct(1).sample_rate/1000); %window_size is in ms, not samples
+                fprintf('removing artifacts for subject %d out of %d\n',s,numsubs);
                 
-                if p.Results.sliding_window==1
-                    fprintf('...removing artifacts using sliding window (window: %dms, threshold: %3.2f SDs)...\n',p.Results.blink_window,p.Results.blink_level);
-                    [eyeStruct, ~] = pupil_sliding_window(eyeStruct,p.Results.blink_window,p.Results.blink_level); %blink_level is in standard deviation units
-                
-                end
-                
-                
-
-                
-            end
-            
- 
-   
-            if p.Results.low_cutoff==1
-                fprintf('...removing all samples below %d...\n',p.Results.low_cutoff_level);
-            end
-            
-             if p.Results.outliers==1
-                fprintf('...removing outliers (samples beyond %d SDs from the mean)...\n',p.Results.outlier_level);              
-                %remove samples that are greater than XX standard
-                %deviations from the mean
-                if p.Results.outliers==1
-                    pupildata=pupil_remove_outliers(eyeStruct,p.Results.outlier_level);
-                end
-                
-            end
-             
-            if p.Results.badxy==1
-                fprintf('...removing bad samples (x,y coords > 10,000)...\n');
-            end
-            
-            
-            if p.Results.contiguous==1
-                contiguous_cutoff =  p.Results.contiguous_cutoff * (eyeStruct(1).sample_rate/1000); %contiguous_cutoff is in ms, not samples
-                fprintf('...removing samples that are not contiguous for at least %dms ...\n',contiguous_cutoff);
-            end
-            
-        
-%             padata={eyeStruct.pa}';
-%             
-%             %             padata=cellfun(@(x) x(eyetracked,:),padata,'UniformOutput',false);
-%             maxsamples=max(cellfun(@length,padata));
-%             
-%             padata=nan(length(eyeStruct),maxsamples);
-            
-            
-            %some functions performed trial by trial here, instead of
-            %through helper functions
-            for i=1:length(eyeStruct)
-                
-                pupildata=eyeStruct(i).pa;
-               
-                %sometimes weird things happen and Eyelink records x/y
-                %coordinates as 1,000,000. Remove these samples
-                if p.Results.badxy==1
+                if p.Results.filter_blinks==1 %this needs to be first!
+                    fprintf('...filtering blinks...\n');
                     
-                    badxy = eyeStruct(i).gx>10000 | eyeStruct(i).gy>10000;
-                    pupildata(badxy) = NaN;
-                    
+                    [eyeStruct,~,~] = pupil_filter_blinks(eyeStruct,0);
                     
                 end
-
-                %blinks are recorded as zero, but sometimes not exactly
-                %zero. Remove anything below 100
-                if p.Results.low_cutoff==1
-                    pupildata(pupildata<p.Results.low_cutoff_level)=NaN;
-                end
                 
                 
-                %for removing little "chunks" that are left after other
-                %artifact removals
-                if p.Results.contiguous==1
-                    %rewrite this with the RunLength function!
+                if p.Results.EL_blinks==1
+                    fprintf('...removing blinks based on EyeLink data...\n');
                     
-                    b=find_contiguous_regions(pupildata); %external function 
-
-                    for j=1:length(b.regwidth)
-                        if b.regwidth(j)<p.Results.contiguous_cutoff
-                            pupildata(b.regstart(j):b.regend(j))=NaN;
-                        end
+                    %first remove blinks based on what EyeLink records..
+                    [eyeStruct,~] = pupil_remove_blinks(eyeStruct);
+                    
+                    
+                    %it's not perfect, so we use some secret sauce..
+                    %a peak-to-peak sliding window algorithm
+                    blink_window = p.Results.blink_window * (eyeStruct(1).sample_rate/1000); %window_size is in ms, not samples
+                    
+                    if p.Results.sliding_window==1
+                        fprintf('...removing artifacts using sliding window (window: %dms, threshold: %3.2f SDs)...\n',p.Results.blink_window,p.Results.blink_level);
+                        [eyeStruct, ~] = pupil_sliding_window(eyeStruct,p.Results.blink_window,p.Results.blink_level); %blink_level is in standard deviation units
                         
                     end
+                    
+                    
+                    
+                    
                 end
                 
                 
-%                 
-%                 if length(pupildata)<maxsamples
-%                     difference=maxsamples-length(pupildata);
-%                     matpupildata=horzcat(pupildata,nan(1,difference));
-%                 else
-%                     matpupildata=pupildata;
-%                 end
-%                 
-%                 
-% %                 padata(i,:)=matpupildata;
-                eyeStruct(i).pa=pupildata;
-                 
-            end
-            
-            %we interpolate last, to fill in all the gaps
-            %by default it will just fill in the gaps. If you choose to
-            %smooth, then whole trial is replaced by smoothed data
-            if p.Results.interpolate==1 || p.Results.smooth==1
-                fprintf('...interpolating using spline fitting...\n');
-                if p.Results.smooth==1
-                    fprintf('...smoothing data...\n');
+                
+                if p.Results.low_cutoff==1
+                    fprintf('...removing all samples below %d...\n',p.Results.low_cutoff_level);
                 end
                 
-                eyeStruct = pupil_interpolate(eyeStruct,p.Results.smooth); %2nd argument is for smoothing
+                if p.Results.outliers==1
+                    fprintf('...removing outliers (samples beyond %d SDs from the mean)...\n',p.Results.outlier_level);
+                    %remove samples that are greater than XX standard
+                    %deviations from the mean
+                    if p.Results.outliers==1
+                        pupildata=pupil_remove_outliers(eyeStruct,p.Results.outlier_level);
+                    end
+                    
+                end
+                
+                if p.Results.badxy==1
+                    fprintf('...removing bad samples (x,y coords > 10,000)...\n');
+                end
+                
+                
+                if p.Results.contiguous==1
+                    contiguous_cutoff =  p.Results.contiguous_cutoff * (eyeStruct(1).sample_rate/1000); %contiguous_cutoff is in ms, not samples
+                    fprintf('...removing samples that are not contiguous for at least %dms ...\n',contiguous_cutoff);
+                end
+                
+                
+                %             padata={eyeStruct.pa}';
+                %
+                %             %             padata=cellfun(@(x) x(eyetracked,:),padata,'UniformOutput',false);
+                %             maxsamples=max(cellfun(@length,padata));
+                %
+                %             padata=nan(length(eyeStruct),maxsamples);
+                
+                
+                %some functions performed trial by trial here, instead of
+                %through helper functions
+                for i=1:length(eyeStruct)
+                    
+                    pupildata=eyeStruct(i).pa;
+                    
+                    %sometimes weird things happen and Eyelink records x/y
+                    %coordinates as 1,000,000. Remove these samples
+                    if p.Results.badxy==1
+                        
+                        badxy = eyeStruct(i).gx>10000 | eyeStruct(i).gy>10000;
+                        pupildata(badxy) = NaN;
+                        
+                        
+                    end
+                    
+                    %blinks are recorded as zero, but sometimes not exactly
+                    %zero. Remove anything below 100
+                    if p.Results.low_cutoff==1
+                        pupildata(pupildata<p.Results.low_cutoff_level)=NaN;
+                    end
+                    
+                    
+                    %for removing little "chunks" that are left after other
+                    %artifact removals
+                    if p.Results.contiguous==1
+                        %rewrite this with the RunLength function!
+                        
+                        b=find_contiguous_regions(pupildata); %external function
+                        
+                        for j=1:length(b.regwidth)
+                            if b.regwidth(j)<p.Results.contiguous_cutoff
+                                pupildata(b.regstart(j):b.regend(j))=NaN;
+                            end
+                            
+                        end
+                    end
+                    
+                    
+                    %
+                    %                 if length(pupildata)<maxsamples
+                    %                     difference=maxsamples-length(pupildata);
+                    %                     matpupildata=horzcat(pupildata,nan(1,difference));
+                    %                 else
+                    %                     matpupildata=pupildata;
+                    %                 end
+                    %
+                    %
+                    % %                 padata(i,:)=matpupildata;
+                    eyeStruct(i).pa=pupildata;
+                    
+                end
+                
+                %we interpolate last, to fill in all the gaps
+                %by default it will just fill in the gaps. If you choose to
+                %smooth, then whole trial is replaced by smoothed data
+                if p.Results.interpolate==1 || p.Results.smooth==1
+                    fprintf('...interpolating using spline fitting...\n');
+                    if p.Results.smooth==1
+                        fprintf('...smoothing data...\n');
+                    end
+                    
+                    eyeStruct = pupil_interpolate(eyeStruct,p.Results.smooth); %2nd argument is for smoothing
+                    
+                end
+                
+                fprintf('\n\n');
+                obj.data{s}=eyeStruct; %save back into the structure
+                
                 
             end
-                
-            fprintf('\n\n');
-            obj.data{s}=eyeStruct; %save back into the structure
-            
-            
-            end  
             
         end
         
@@ -1651,12 +1607,12 @@ classdef iTrack
                 
                 behdata = cellfun(@(x) vertcat(x{:}),behdata,'Uniform',false); %this pulls everything out of nested cells
             end
-           
+            
             keep_idx= cellfun(@(x) eval(['x',p.Results.condition,num2str(p.Results.value)]),behdata,'Uniform',false);
             
             for s=1:length(obj.subs)
                 
-               obj.data{s} = obj.data{s}(keep_idx{s});
+                obj.data{s} = obj.data{s}(keep_idx{s});
                 
             end
             
@@ -1703,7 +1659,7 @@ classdef iTrack
             elseif p.Results.beh
                 for f = 1:length(p.Results.fieldnames)
                     
-                     if isfield(obj.data{1},p.Results.fieldnames{f})
+                    if isfield(obj.data{1},p.Results.fieldnames{f})
                         %if field already exists, remove it first to be
                         %safe
                         obj = remove_fields(obj,p.Results.fieldnames{f});
@@ -1714,7 +1670,7 @@ classdef iTrack
                     
                     for s=1:length(temp)
                         tempcell = num2cell(temp{s});
-  
+                        
                         [obj.data{s}.(p.Results.fieldnames{f})] = deal(tempcell{:});
                         
                     end
@@ -1757,7 +1713,7 @@ classdef iTrack
                 
                 for i=1:length(eyeStruct)
                     
-                  
+                    
                     find_idx = ~cellfun(@isempty,regexp(eyeStruct(i).events.message,p.Results.search));
                     
                     
@@ -1780,7 +1736,7 @@ classdef iTrack
                     else
                         if (p.Results.behfield)
                             
-                            if p.Results.time 
+                            if p.Results.time
                                 eyeStruct(i).beh.(fieldname) = NaN;
                             else
                                 eyeStruct(i).beh.(fieldname) = 'NaN';
@@ -1799,32 +1755,32 @@ classdef iTrack
                 end
                 
                 
-                if p.Results.striptext 
+                if p.Results.striptext
                     numvector=str2double(regexprep({eyeStruct.(fieldname)}','[a-z A-Z]',''));
                     numvector=num2cell(numvector);
                     [eyeStruct.(fieldname)] = deal(numvector{:});
                 end
-
+                
                 
                 obj.data{s} = eyeStruct;
-           
+                
             end
             
-           
+            
             
         end
-                       
+        
         
         function obj=rename_messages(obj,search_exp,replace_exp,replacement)
-           
+            
             numsubs=size(obj.data(:,1),1);
-           
+            
             for s=1:numsubs
                 
                 eyeStruct=obj.data{s};
-            
+                
                 for i = 1:length(eyeStruct)
-                   
+                    
                     messages = eyeStruct(i).events.message;
                     matches =  ~cellfun(@isempty,regexp(messages,search_exp));
                     
@@ -1858,10 +1814,10 @@ classdef iTrack
                 case {'table'}
                     
                     times = times(:,horzcat(obj.subject_var,p.Results.index,p.Results.name));
-                
+                    
                 case {'double','single'}
-                    times = array2table(times,'VariableNames',{obj.subject_var,p.Results.name});                    
-                     
+                    times = array2table(times,'VariableNames',{obj.subject_var,p.Results.name});
+                    
                 case {'cell'}
                     times = vertcat(times{:});
                     times = cell2table(times,'VariableNames',{obj.subject_var,p.Results.name});
@@ -1869,9 +1825,9 @@ classdef iTrack
             end
             
             
-           %the work is done with add_behdata because the process is the
-           %same. 
-           obj = add_behdata(obj,times,'index',p.Results.index,'addevent',true,'append',true);
+            %the work is done with add_behdata because the process is the
+            %same.
+            obj = add_behdata(obj,times,'index',p.Results.index,'addevent',true,'append',true);
             
             
             
@@ -1887,9 +1843,9 @@ classdef iTrack
                 eyeStruct = obj.data{s};
                 
                 for t =1:length(eyeStruct)
-                
+                    
                     eyeStruct(t).events=getEdfMessages(eyeStruct(t));%external file
-            
+                    
                 end
                 
                 obj.data{s} = eyeStruct;
@@ -1898,17 +1854,17 @@ classdef iTrack
             end
             
         end
-      
+        
         
         function obj=pupil_subset(obj,criteria)
-           
+            
             numsubs=size(obj.data(:,1),1);
             
             expr=sprintf('beh.%s & ',criteria{:});
             expr=expr(1:end-2);
             
             for s=1:numsubs
-               
+                
                 beh=obj.data{s,2};
                 eyes=obj.data{s};
                 
@@ -1924,9 +1880,9 @@ classdef iTrack
             end
             
         end
-      
+        
         function [fixcell,eyetable] = get_eyeEvents(obj,varargin)
-           
+            
             p = inputParser;
             p.addRequired('type', @(x) ischar(x));
             p.addParameter('subjects',[],@(x) isnumeric(x) || iscell(x));
@@ -1956,15 +1912,15 @@ classdef iTrack
             end
             
             %this gives a cell for each subject, with a cell array for each
-            %trial 
+            %trial
             temp = subsref(obj,S);
             
             
             
             
-        
+            
             fnames = reshape(fieldnames(temp{1}{1}),1,[]);
-
+            
             
             %make cleaner names
             newnames = strcat(prefix,fnames);
@@ -1985,7 +1941,7 @@ classdef iTrack
                         {'start','end','dur','x','y','xdeg','ydeg'});
             end
             
-
+            
             
             %convert the nested cell arrays to matricies
             fixcell = cellfun(@(y) cellfun(@struct2array,y,'Uniform',false),temp,'Uniform',false);
@@ -2012,7 +1968,7 @@ classdef iTrack
             
             %this makes it into a vector (instead of cells within cells)
             trialnums = cellfun(@(x) vertcat(x{:}),trialnums,'Uniform',false);
-
+            
             %this replicates the subject ID for the number of fixations for
             %each subject
             subids = cellfun(@(x,y) repmat(y,size(x,1),1),trialnums,obj.subs,'Uniform',false);
@@ -2037,8 +1993,8 @@ classdef iTrack
             end
             
             
-            if ~isempty(p.Results.rois) 
-               
+            if ~isempty(p.Results.rois)
+                
                 if strcmpi(p.Results.type,'fixations')
                     allrois = subsref(obj,struct('type','.','subs','fixation_hits'));
                     allrois_end = [];
@@ -2046,7 +2002,7 @@ classdef iTrack
                     allrois = subsref(obj,struct('type','.','subs','saccade_start_hits'));
                     allrois_end = subsref(obj,struct('type','.','subs','saccade_end_hits'));
                 end
-                    
+                
                 allrois = vertcat(allrois{:});
                 allrois = vertcat(allrois{:});
                 
@@ -2075,21 +2031,21 @@ classdef iTrack
                     %if we're doing saccades, then we want to do it twice
                     %(for the start and the end of saccades)
                     for i = 1:2
-                       
-                        for r = 1:length(p.Results.rois)    
+                        
+                        for r = 1:length(p.Results.rois)
                             rname = strcat('roi_',p.Results.rois{r});
                             
                             if i==1
-                                rname_new = strcat(p.Results.rois{r},'_start_hit');                         
+                                rname_new = strcat(p.Results.rois{r},'_start_hit');
                                 roihits.(rname_new) = vertcat(allrois.(rname));
                             else
                                 
-                                rname_new = strcat(p.Results.rois{r},'_end_hit');                         
+                                rname_new = strcat(p.Results.rois{r},'_end_hit');
                                 roihits.(rname_new) = vertcat(allrois_end.(rname));
                             end
                         end
-  
-                    end                
+                        
+                    end
                 end
                 
                 eyetable = horzcat(eyetable,roihits);
@@ -2101,47 +2057,47 @@ classdef iTrack
             
             
         end
-           
+        
         
         function obj=index_fixations(obj)
             
-           %grab all fixations 
-           fixcell = get_eyeEvents(obj,'fixations','fields',{'sttime','entime'},'rename',false);
-           
-           %for each subject
-           for s = 1:length(fixcell)
-              
-               fixdata =fixcell{s,1}; %pull out the data
-               
-               for trial =1:size(fixdata,1) %loop through each trial
+            %grab all fixations
+            fixcell = get_eyeEvents(obj,'fixations','fields',{'sttime','entime'},'rename',false);
+            
+            %for each subject
+            for s = 1:length(fixcell)
+                
+                fixdata =fixcell{s,1}; %pull out the data
+                
+                for trial =1:size(fixdata,1) %loop through each trial
                     %this is all zeros at first (#fixations x #timepoints)
                     idxmat = obj.data{s}(trial).fixation_times;
                     
                     for fix=1:size(idxmat,1) %loop through each fixation
-                       
-                      if ~isnan(fixdata{trial}(fix,1)) && fixdata{trial}(fix,1)>0
-                       idxmat(fix,fixdata{trial}(fix,1):fixdata{trial}(fix,2)) = 1; %mark the timepoints where the fixations occurred
-                      end
+                        
+                        if ~isnan(fixdata{trial}(fix,1)) && fixdata{trial}(fix,1)>0
+                            idxmat(fix,fixdata{trial}(fix,1):fixdata{trial}(fix,2)) = 1; %mark the timepoints where the fixations occurred
+                        end
                         
                     end
-                   
+                    
                     obj.data{s}(trial).fixation_times = idxmat; %save it
                     
                     fix_mask = max(idxmat,[],1);
                     fix_mask(fix_mask==0) = NaN;
                     obj.data{s}(trial).fixation_time_mask = fix_mask;
-                   
-               end
                     
-           end
+                end
+                
+            end
             
             
             
         end
-      
+        
         
         function obj=clearROIs(obj)
-           
+            
             obj.rois.single=[];
             obj.rois.combined=[];
             
@@ -2160,7 +2116,7 @@ classdef iTrack
             p.addParameter('names',{},@iscell);
             parse(p,varargin{:});
             
-
+            
             if p.Results.clear==1
                 obj = clearROIs(obj);
             end
@@ -2168,7 +2124,7 @@ classdef iTrack
             xres = obj.screen.dims(1);
             yres = obj.screen.dims(2);
             
-
+            
             if isempty(obj.rois.single)
                 existing_rois = 0;
             else
@@ -2184,7 +2140,7 @@ classdef iTrack
             
             
             if isempty(p.Results.names)
-%                 names = num2cell((existing_rois+1):(existing_rois+size(pos,1)));
+                %                 names = num2cell((existing_rois+1):(existing_rois+size(pos,1)));
                 temp = (existing_rois+1):(existing_rois+size(pos,1));
                 names = strread(num2str(temp),'%s');
             else
@@ -2193,51 +2149,54 @@ classdef iTrack
             
             
             for r =(existing_rois+1):(existing_rois+size(pos,1))
-            
-             i = r - existing_rois;  %index of current set of rois 
-             xpos = pos(i,1);
-             ypos = pos(i,2);
-             
-             xcenter = fix(obj.screen.dims(1)/2);
-             ycenter = fix(obj.screen.dims(2)/2);
-             
-             [XX, YY] = meshgrid(0:(xres-1),0:(yres-1));
-             
-             obj.rois.single(r).name = names{i};
-             obj.rois.single(r).coords = [xpos,ypos];
-             obj.rois.single(r).shape = p.Results.shape;
-             
-             switch p.Results.shape
-                 case {'circle','circular'}
-                     obj.rois.single(r).mask = sqrt((XX-xpos).^2+(YY-ypos).^2)<=p.Results.radius;
-                     
-                 case {'ellipse','elliptical'}
-                    
-                    if angles(i)>0
-                     
-                     xshift = xpos - xcenter;
-                     yshift = ypos - ycenter;
+                
+                i = r - existing_rois;  %index of current set of rois
+                xpos = pos(i,1);
+                ypos = pos(i,2);
+                
+                xcenter = fix(obj.screen.dims(1)/2);
+                ycenter = fix(obj.screen.dims(2)/2);
+                
+                [XX, YY] = meshgrid(0:(xres-1),0:(yres-1));
+                
+                obj.rois.single(r).name = names{i};
+                obj.rois.single(r).coords = [xpos,ypos];
+                obj.rois.single(r).shape = p.Results.shape;
+                obj.rois.single(r).radius = p.Results.radius;
+                obj.rois.single(r).xradius = p.Results.xradius;
+                obj.rois.single(r).yradius = p.Results.yradius;
+                
+                switch p.Results.shape
+                    case {'circle','circular'}
+                        obj.rois.single(r).mask = sqrt((XX-xpos).^2+(YY-ypos).^2)<=p.Results.radius;
                         
-                     %create an ellipse in the center, then rotate   
-                     el=((XX-xcenter)/p.Results.xradius).^2+((YY-ycenter)/p.Results.yradius).^2<=1;   
-                     el=imrotate(el,angles(i),'nearest','crop');
-                     
-                     %then shift the image so it's centered over the
-                     %correct point
-                     RA = imref2d(size(el)); %so we keep the same image size
-                     tform = affine2d([1 0 0; 0 1 0; xshift yshift 1]);
-                     el = imwarp(el, tform,'OutputView',RA);
-                     
-                    else
-                        el=((XX-xpos)/p.Results.xradius).^2+((YY-ypos)/p.Results.yradius).^2<=1;
-                    end
-                    
-                     obj.rois.single(r).mask =el;
-             end
-             
+                    case {'ellipse','elliptical'}
+                        
+                        if angles(i)>0
+                            
+                            xshift = xpos - xcenter;
+                            yshift = ypos - ycenter;
+                            
+                            %create an ellipse in the center, then rotate
+                            el=((XX-xcenter)/p.Results.xradius).^2+((YY-ycenter)/p.Results.yradius).^2<=1;
+                            el=imrotate(el,angles(i),'nearest','crop');
+                            
+                            %then shift the image so it's centered over the
+                            %correct point
+                            RA = imref2d(size(el)); %so we keep the same image size
+                            tform = affine2d([1 0 0; 0 1 0; xshift yshift 1]);
+                            el = imwarp(el, tform,'OutputView',RA);
+                            
+                        else
+                            el=((XX-xpos)/p.Results.xradius).^2+((YY-ypos)/p.Results.yradius).^2<=1;
+                        end
+                        
+                        obj.rois.single(r).mask =el;
+                end
+                
             end
-
-                       
+            
+            
         end
         
         function obj=combineROIs(obj)
@@ -2247,9 +2206,9 @@ classdef iTrack
             combined = zeros(size(obj.rois.single(1).mask));
             
             for r = 1:numrois
-               
-                combined = combined + obj.rois.single(r).mask;  
- 
+                
+                combined = combined + obj.rois.single(r).mask;
+                
             end
             
             obj.rois.combined = combined;
@@ -2258,7 +2217,7 @@ classdef iTrack
         
         
         function obj = calcHits(obj,varargin)
-            %wrapper for calcEyehits_ to make it easier to repreat for
+            %wrapper for calcEyehits_ to make it easier to repeat for
             %fixations and saccades.
             p = inputParser;
             p.addParameter('rois','all',@(x) iscell(x) || ischar(x));
@@ -2267,29 +2226,29 @@ classdef iTrack
             obj = calcEyehits_(obj,'rois',p.Results.rois,'type','fixations');
             obj = calcEyehits_(obj,'rois',p.Results.rois,'type','saccade_start');
             obj = calcEyehits_(obj,'rois',p.Results.rois,'type','saccade_end');
-                   
+            
         end
         
         function obj= calcEyehits_(obj,varargin)
             %internal function for calculating whether fixations/saccades
-            %hit a given roi or not. 
+            %hit a given roi or not.
             p = inputParser;
             p.addParameter('rois','all',@(x) iscell(x) || ischar(x));
             p.addParameter('type','fixations',@ischar);
             parse(p,varargin{:});
             
-              
+            
             numsubs = length(obj.subs);
             
             
             if ~iscell(p.Results.rois) && strcmp(p.Results.rois,'all')
                 rois = {obj.rois.single.name};
-            elseif ~iscell(p.Results.rois) 
+            elseif ~iscell(p.Results.rois)
                 rois = {p.Results.rois};
             else
                 rois = p.Results.rois;
             end
-  
+            
             numROIs = length(rois);
             
             
@@ -2311,7 +2270,7 @@ classdef iTrack
                 
                 
                 for r=1:numROIs
-           
+                    
                     xres = obj.screen.dims(1);
                     yres = obj.screen.dims(2);
                     
@@ -2329,30 +2288,30 @@ classdef iTrack
                     %back into the cell array format
                     trialnums = num2cell(1:length(data))';
                     numfixes = cellfun(@(x) size(x,1),data(:,1),'Uniform',false);
-         
-                    trial_vec = cellfun(@(x,y) repmat(y,x,1),numfixes,trialnums,'Uniform',false);    
+                    
+                    trial_vec = cellfun(@(x,y) repmat(y,x,1),numfixes,trialnums,'Uniform',false);
                     trial_vec = vertcat(trial_vec{:});
-
+                    
                     %bad samples recoded as zero
                     coords(coords(:,1)>xres | coords(:,1)<=0 | isnan(coords(:,1)),1) = xres;
                     coords(coords(:,2)>yres | coords(:,2)<=0 | isnan(coords(:,2)),2) = yres;
-
+                    
                     coords = ceil(coords);
                     
                     %find all unique fixations
                     [ucoords,idx_u,idx_a] = unique(coords,'rows','stable');
-
+                    
                     scr = zeros(yres,xres);
-
+                    
                     %find the indicies of the fixations
                     idx = sub2ind([yres,xres],ucoords(:,2),ucoords(:,1));
-                    scr(idx)=1:length(ucoords); 
-
+                    scr(idx)=1:length(ucoords);
+                    
                     fix_bin = logical(scr); %binary mask of fixations
                     overlap = (double(roi_mask+fix_bin)>1); %the overlap between the mask and the fixations
-
+                    
                     overlap = double(overlap).*scr;
-
+                    
                     overlap_idx = unique(overlap);
                     overlap_idx = overlap_idx(overlap_idx>0); %rows in ucoords that overlap with mask
                     
@@ -2364,19 +2323,19 @@ classdef iTrack
                     
                     %binary vector-- hit or not
                     hits_all=single(hits_sub(idx_a));
-
+                    
                     if isnumeric(rois{r})
                         name = strcat('roi_',num2str(rois{r}));
                     else
                         name = strcat('roi_',obj.rois.single(roi_idx).name);
                     end
-
-
+                    
+                    
                     %take our 1 big vector and split to a cell to put back
                     %in our array (1 cell for each trial)
                     hits_all = split_by_idx(hits_all,trial_vec);
-
-
+                    
+                    
                     [fixation_hits(1:length(hits_all)).(name)] = deal(hits_all{:});
                     
                 end
@@ -2385,126 +2344,17 @@ classdef iTrack
                 %because matlab is dumb.
                 temp = arrayfun(@(x) {x},fixation_hits);
                 
-               
+                
                 
                 
                 %now we can fill in our data
-                [obj.data{s}.(newfname)] = deal(temp{:}); 
+                [obj.data{s}.(newfname)] = deal(temp{:});
                 
             end
-               
+            
         end
         
         
-%         function obj= calcFixationHits(obj,varargin)
-%             
-%             p = inputParser;
-%             p.addParameter('rois','all',@(x) iscell(x) || ischar(x));
-%             parse(p,varargin{:});
-%             
-%               
-%             numsubs = length(obj.subs);
-%             
-%             
-%             if ~iscell(p.Results.rois) && strcmp(p.Results.rois,'all')
-%                 rois = {obj.rois.single.name};
-%             elseif ~iscell(p.Results.rois) 
-%                 rois = {p.Results.rois};
-%             else
-%                 rois = p.Results.rois;
-%             end
-%   
-%             numROIs = length(rois);
-%             
-%             allfixdata = get_eyeEvents(obj,'fixations','fields',{'gavx','gavy'},'rename',false);
-%             
-%             for s=1:numsubs
-%                 
-%                 fixation_hits = struct;
-%                 data = allfixdata{s};
-%                 
-%                 
-%                 for r=1:numROIs
-%            
-%                     xres = obj.screen.dims(1);
-%                     yres = obj.screen.dims(2);
-%                     
-%                     roi_idx = find(ismember({obj.rois.single.name},rois{r}));
-%                     
-%                     roi_mask = obj.rois.single(roi_idx).mask;
-%                     
-%                     %%
-%                     %matrix of all coordinates
-%                     coords = double(vertcat(data{:}));
-%                     
-%                     
-%                     %creates a vector of the trial #, repeated for each
-%                     %fixation in that trial. Useful for putting our data
-%                     %back into the cell array format
-%                     trialnums = num2cell(1:length(data))';
-%                     numfixes = cellfun(@(x) size(x,1),data(:,1),'Uniform',false);
-%          
-%                     trial_vec = cellfun(@(x,y) repmat(y,x,1),numfixes,trialnums,'Uniform',false);    
-%                     trial_vec = vertcat(trial_vec{:});
-% 
-%                     %bad samples recoded as zero
-%                     coords(coords(:,1)>xres | coords(:,1)<=0 | isnan(coords(:,1)),1) = xres;
-%                     coords(coords(:,2)>yres | coords(:,2)<=0 | isnan(coords(:,2)),2) = yres;
-% 
-%                     coords = ceil(coords);
-%                     
-%                     %find all unique fixations
-%                     [ucoords,idx_u,idx_a] = unique(coords,'rows','stable');
-% 
-%                     scr = zeros(yres,xres);
-% 
-%                     %find the indicies of the fixations
-%                     idx = sub2ind([yres,xres],ucoords(:,2),ucoords(:,1));
-%                     scr(idx)=1:length(ucoords); 
-% 
-%                     fix_bin = logical(scr); %binary mask of fixations
-%                     overlap = (double(roi_mask+fix_bin)>1); %the overlap between the mask and the fixations
-% 
-%                     overlap = double(overlap).*scr;
-% 
-%                     overlap_idx = unique(overlap);
-%                     overlap_idx = overlap_idx(overlap_idx>0); %rows in ucoords that overlap with mask
-%                     
-%                     %now map this back to the original data (all fixations,
-%                     %not just the unique ones)
-%                     hits = idx_a(ismember(idx_a,overlap_idx));
-%                     hits_sub =zeros(length(ucoords),1);
-%                     hits_sub(hits)=1;
-%                     
-%                     %binary vector-- hit or not
-%                     hits_all=single(hits_sub(idx_a));
-% 
-%                     if isnumeric(rois{r})
-%                         name = strcat('roi_',num2str(rois{r}));
-%                     else
-%                         name = strcat('roi_',obj.rois.single(roi_idx).name);
-%                     end
-% 
-% 
-%                     %take our 1 big vector and split to a cell to put back
-%                     %in our array (1 cell for each trial)
-%                     hits_all = split_by_idx(hits_all,trial_vec);
-% 
-% 
-%                     [fixation_hits(1:length(hits_all)).(name)] = deal(hits_all{:});
-%                     
-%                 end
-%                 
-%                 %convert our fixation_hits structure to a cell. Why?
-%                 %because matlab is dumb.
-%                 temp = arrayfun(@(x) {x},fixation_hits);
-%                 
-%                 %now we can fill in our data
-%                 [obj.data{s}.fixation_hits] = deal(temp{:}); 
-%                 
-%             end
-%                
-%         end
         
         
         function varargout = subsref(obj,S)
@@ -2517,18 +2367,18 @@ classdef iTrack
                 %if we're dealing with the highest-level fields, just use
                 %matalab's builtin stuff
                 [varargout{1:nargout}] = builtin('subsref',obj,S);
-            
+                
             elseif length(S)==1
                 [objfields,behfields] = get_all_fields(obj);
                 
                 if ismember(S.subs,objfields)
-                   [varargout{1:nargout}] = cellfun(@(x) reshape({x.(S.subs)},[],1),obj.data,'Uniform',false);
-%                    [varargout{1:nargout}] = cellfun(@(x) vertcat(x{:}),allobj,'Uniform',false);
-                   
+                    [varargout{1:nargout}] = cellfun(@(x) reshape({x.(S.subs)},[],1),obj.data,'Uniform',false);
+                    %                    [varargout{1:nargout}] = cellfun(@(x) vertcat(x{:}),allobj,'Uniform',false);
+                    
                 elseif ismember(S.subs,behfields)
-                     
+                    
                     allbeh = cellfun(@(x) [x.beh],obj.data,'Uniform',false);
-                    [varargout{1:nargout}] = cellfun(@(x) reshape({x.(S.subs)},[],1),allbeh,'Uniform',false); 
+                    [varargout{1:nargout}] = cellfun(@(x) reshape({x.(S.subs)},[],1),allbeh,'Uniform',false);
                 else
                     error('field "%s" not found!',S(1).subs)
                 end
@@ -2549,7 +2399,7 @@ classdef iTrack
             else
                 behfields = {''};
             end
-                 
+            
             objfields = vertcat(objfields{:});
             behfields = vertcat(behfields{:});
             
@@ -2558,7 +2408,7 @@ classdef iTrack
             
             objfields = unique(objfields);
             behfields = unique(behfields);
-             
+            
         end
         
         
@@ -2567,7 +2417,7 @@ classdef iTrack
             %and saccades and for multiple mappings.
             %indicator can be a name from the behavioral file, or a cell
             %array with a cell of values for each subject, or a single
-            %value that's repeated for each subject. 
+            %value that's repeated for each subject.
             
             p = inputParser;
             p.addParameter('name',{},@(x) ischar(x) || iscell(x));
@@ -2605,14 +2455,14 @@ classdef iTrack
         
         function obj=roimapper_(obj,newName,varargin)
             %primarily mapping from original experiment-wide ROIs (1,2,3..) to
-            %trial-specific rois (e.g., 'target','distractor')  
+            %trial-specific rois (e.g., 'target','distractor')
             p = inputParser;
             p.addParameter('indicator',{});
             p.addParameter('type','fixations',@ischar);
-            parse(p,varargin{:}); 
+            parse(p,varargin{:});
             
             numsubs = length(obj.subs);
-
+            
             
             switch lower(p.Results.type)
                 case {'fixations'}
@@ -2625,7 +2475,7 @@ classdef iTrack
                     fname = 'saccade_end_hits';
                     fname2 = 'Saccades';
             end
-                        
+            
             
             %indicator should be a cell array, 1 cell per subject
             %each cell has a row for each trial, with either a number or
@@ -2658,39 +2508,39 @@ classdef iTrack
             newName = strcat('roi_',newName);
             
             for s=1:numsubs
-
-               
-               roimap = cell2mat(idx{s});
-
-               for i=1:length(obj.data{s})
-                   %loop through each trial, get the name of the original
-                   %rois that match up with the trial-specific one, then
-                   %just copy the data
-                   
-                   
-                   if by_name %if specified by name
+                
+                
+                roimap = cell2mat(idx{s});
+                
+                for i=1:length(obj.data{s})
+                    %loop through each trial, get the name of the original
+                    %rois that match up with the trial-specific one, then
+                    %just copy the data
+                    
+                    
+                    if by_name %if specified by name
                         roiname = strcat('roi_',roimap{i});
-                   else
-                       %find the corresponding roi based on the index
-                       %number
-                       if roimap(i) > 0 && roimap(i) <= length(obj.rois.single)
+                    else
+                        %find the corresponding roi based on the index
+                        %number
+                        if roimap(i) > 0 && roimap(i) <= length(obj.rois.single)
                             roiname = strcat('roi_',obj.rois.single(roimap(i)).name);
-                       else
-                           roiname = [];
-                       end
-                   
-                       
-                       
-                       
-                   if ~isempty(roiname)
-                        obj.data{s}(i).(fname).(newName) = obj.data{s}(i).(fname).(roiname);
-                   else
-                       obj.data{s}(i).(fname).(newName) = single(nan(size(obj.data{s}(i).(fname2).sttime,1),1));
-                   end
-                   
-                   
-                   end
-               end
+                        else
+                            roiname = [];
+                        end
+                        
+                        
+                        
+                        
+                        if ~isempty(roiname)
+                            obj.data{s}(i).(fname).(newName) = obj.data{s}(i).(fname).(roiname);
+                        else
+                            obj.data{s}(i).(fname).(newName) = single(nan(size(obj.data{s}(i).(fname2).sttime,1),1));
+                        end
+                        
+                        
+                    end
+                end
                 
                 
             end
@@ -2728,14 +2578,14 @@ classdef iTrack
                 fixation_hits = fixation_hits_all{s};
                 fixation_times = fixation_times_all{s};
                 fixation_time_mask = fixation_time_mask_all{s}; %shows where we have no fixation data
-
+                
                 [obj.data{s}.fix] = deal([]);
                 
                 allhits = struct;
                 
                 for r=1:numROIs
                     
-
+                    
                     roihits = cellfun(@(x) x.(strcat('roi_',rois{r})),fixation_hits,'Uniform',false);
                     
                     hitsovertime = cellfun(@(x,y) double(x)'*double(y),roihits,fixation_times,'Uniform',false);
@@ -2745,8 +2595,8 @@ classdef iTrack
                     %will be NaN instead of zero)
                     hitsovertime = cellfun(@(x,y) double(x) .* double(y), hitsovertime,fixation_time_mask,'Uniform',false);
                     
-                    [allhits(1:length(hitsovertime)).(rois{r})] = deal(hitsovertime{:}); 
-
+                    [allhits(1:length(hitsovertime)).(rois{r})] = deal(hitsovertime{:});
+                    
                     
                 end
                 
@@ -2755,7 +2605,7 @@ classdef iTrack
                 temp = arrayfun(@(x) {x},allhits);
                 
                 [obj.data{s}.fix] = deal(temp{:});
-
+                
                 
             end
             
@@ -2763,7 +2613,7 @@ classdef iTrack
         end
         
         
-            
+        
         function aggDS=aggregate(obj,varargin)
             p = inputParser;
             p.addParameter('fix',true);
@@ -2780,12 +2630,12 @@ classdef iTrack
                 dataDS=build_dataset(obj,horzcat(obj.subject_var,p.Results.factors,p.Results.filter),p.Results.eyedata,'fix',p.Results.fix,'rois',p.Results.rois); %build behavior-pupil dataset
                 dataDS= dataDS(dataDS.(p.Results.filter)==p.Results.value,:);
             else
-            
+                
                 dataDS=build_dataset(obj,horzcat(obj.subject_var,p.Results.factors),p.Results.eyedata,'fix',p.Results.fix,'rois',p.Results.rois); %build behavior-pupil dataset
             end
             
-
-
+            
+            
             
             dataVarnames = dataDS.Properties.VariableNames((end-length(p.Results.rois)+1):end);
             
@@ -2797,224 +2647,40 @@ classdef iTrack
             aggDS = grpstats(aggDS,p.Results.factors,p.Results.function,'DataVars',dataVarnames);
             aggDS.Properties.VariableNames((end-(length(p.Results.rois))+1):end) = dataVarnames;
             
-             
+            
         end
         
-        function scatterplots(obj,separate_by,varargin)
+        
+        
+        function obj = scatterplots(obj,factors,varargin)
+            
             p = inputParser;
-            p.addParameter('rois',{},@iscell);
-            p.addParameter('overlay',false);
+            p.addParameter('zoom',false,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('screen',true,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('overlay',true,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('hitonly',false,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('skipnan',true,@(x) islogical(x) || ismember(x,[0,1]));
+            p.addParameter('color','yellow',@ischar);
+            p.addParameter('size',4,@isnumeric);
+            p.addParameter('roi',{},@iscell);
             parse(p,varargin{:});
-           
-%            alldata = build_dataset(obj,'beh',separate_by,'allfix',true,'rois',horzcat('xy',p.Results.rois));
-%            alldata= alldata(~any(ismissing(alldata),2),:); %remove rows with any missing data
-           
-            
-            alldata = report(obj,'fixations','behvars',separate_by,'rois',p.Results.rois);
-            alldata= alldata(~any(ismissing(alldata),2),:); %remove rows with any missing data
             
             
-           
-           
-           
-           if ~isempty(p.Results.rois)
-               separate_by = horzcat(separate_by,strcat(p.Results.rois,'_hit'));
-           end
-
-           
-           fixScatterplots(obj,alldata,separate_by,'fix_x','fix_y');
-           
-          placeFigures('intergapH',10,'intergapV',10,'toolsize',30)
+            fixdata = report(obj,'fixations','behvars',factors,'rois',p.Results.roi);
+            
+            
+            if p.Results.overlay
+                overlay = obj.rois.combined;
+            else
+                overlay = [];
+            end
+            
+            fix_scatterplots(fixdata,factors,'overlay',overlay,'roi',p.Results.roi,'Xvar','fix_x','Yvar','fix_y','screendims',obj.screen.dims,'color',p.Results.color,'size',p.Results.size,'zoom',p.Results.zoom,'hitonly',p.Results.hitonly,'skipnan',p.Results.skipnan);
             
             
         end
-         
         
-        function fixScatterplots(obj,fixdata,separate_by,x_col,y_col,varargin)
-            %Specify a dataset, factors to separate the data by (in a cell array), and x and y
-            %columns (as variable names), and it will split into the appropriate number of plots. It's a
-            %recursive function that handles an arbitrary number of factors. Factors
-            %should be listed "hierarchically"-- the last one listed will group into
-            %subplots on a single figure. Otherwise, they will be separated into
-            %separate figures.
-            %
-            %
-            %Example: if we have 5 subjects and 2 conditions each,
-            %fixationScatter(testDS,{'SUBID' 'CONDITION'},'X','Y') generates 5 figures with 2 plots each.
-            %fixationScatter(testDS,{'CONDITION' 'SUBID'},'X','Y') generates 2 figures
-            %with 5 subplots each.
-            
-            
-            
-            
-            
-            %Title is optional when fucntion is called (but fed into further recursive
-            %steps). Initialize as blank.
-            bigtitle='';
-            
-            
-            %initialize to this, if bigtitle is provided, it will be used as the
-            %filename
-            filename=[separate_by{1} '.tif'];
-            
-            %check for optional x and y limits for plots e.g., xlimits=[0 1024]
-            if (length(varargin)>=2 && ~isempty(varargin{1}))
-                xlimits=varargin{1};
-                ylimits=varargin{2};
-            else
-                xlimits = [0,obj.screen.dims(1)];
-                ylimits = [0,obj.screen.dims(2)];
-            end
-            
-            %check for optional title argument
-            if (length(varargin)>=3 && ~isempty(varargin{3}))
-                bigtitle=varargin{3};
-                filename=[regexprep(bigtitle,'=', '-') '.tif'];
-            end
-            
-            %check for optional overlay argument (3xN matrix, specifying x,y, and
-            %radius of each circle)
-            if (length(varargin)>=4)
-                overlay_coords=varargin{4};
-            end
-            
-            if (length(varargin)>=5)
-                movieMode=varargin{5};
-            else
-                movieMode=0;
-            end
-            
-            %grab the fist factor from the list
-            groupvar=separate_by{1};
-            
-            %base condition, if we only have 1 factor
-            if length(separate_by)==1
-                
-                %figure out how many subplots we need
-                all_conditions = unique(fixdata.(groupvar));
-                plotrows = ceil(sqrt(length(all_conditions)));
-                
-                %create new figure
-                big_figure=figure();
-                                    
-                   
-                %for each factor level...
-                for i=1:length(all_conditions)
-                    %subset data...
-                    current = all_conditions(i);
-                    groupvar=separate_by{1};
-                    current_subset = fixdata(fixdata.(groupvar)==current,:);
-                    
-                    %...create new subplot (2 plots side-by-side if there are only 2, otherwise
-                    %make a square matrix of plots (e.g., 3x3 for 9 or 10 plots).
-                    
-                    
-                    if(~movieMode && length(all_conditions)==2)
-                        subplot(1,2,i)
-
-                    
-                    elseif (~movieMode && length(all_conditions)~=2)
-                        subplot(plotrows,plotrows,i);
-
-                    end
-                    
-                    if movieMode
-                        set(gca,'nextplot','replacechildren');
-                        xlim(obj.screen.dims(1));
-                        ylim(obj.screen.dims(2));
-                    end
-                    
-                    %draw the scatterplot of the current subset (red dots)
-                    h = scatter(current_subset.(x_col),current_subset.(y_col),10,'r');
-                    hold on;
-                    
-                    
-                    %if we need to draw overlays, draw them, using helper drawOverlay
-                    %function
-                    if (exist('overlay_coords'))
-                        for i=1:size(overlay_coords,1)
-                            drawOverlay(overlay_coords(i,:));
-                            hold on;
-                        end
-                    end
-                    
-                        set(gcf,'Toolbar','none','Color','white','Menubar','none');
-    
-                        set(gca,'LooseInset',get(gca,'TightInset'));
-                        
-                        set(findall(gcf,'type','text'),'fontSize',14,'fontWeight','bold')
-                    
-                    %title for each subplot, written below (so it doesn't overlap with
-                    %overall title.
-                    title_text = sprintf('%s = %d',groupvar,current);
-                    title_text = strrep(title_text,'_','-');
-                    xlabel(title_text);
-                    
-                    %set x and y limits, if given
-                    if (exist('xlimits') && exist('ylimits'))
-                        ylim(ylimits);
-                        xlim(xlimits);
-                    end
-                    
-                    if ~movieMode
-                        %create 1 big title at the top of the figure
-                        figure(big_figure);
-                        set(big_figure,'NextPlot','add');
-                        axes;
-                        h = title(strrep(bigtitle,'_','-'));
-                        set(gca,'Visible','off');
-                        set(h,'Visible','on');
-                    end
-                    
-
-                    
-                    
-                    if movieMode
-                        mov=getframe(big_figure);
-                        pause(.1);
-                        imwrite(mov.cdata,filename,'writemode','append');
-                    end
-                    
-                end
-                
-                
-                %otherwise, do a recursive function call...
-            else
-                
-                %we have to pass the optional arguments this time, so just set them as
-                %empty if they weren't given the first time.
-                if ~exist('xlimits')
-                    xlimits=[];
-                end
-                
-                if ~exist('ylimits')
-                    ylimits=[];
-                end
-                
-                if ~exist('overlay_coords')
-                    overlay_coords=[];
-                end
-                
-                %for each level of the first factor...
-                all_conditions = unique(fixdata.(groupvar));
-                for i=1:length(all_conditions)
-                    %...create a subset
-                    current = all_conditions(i);
-                    current_subset = fixdata(fixdata.(groupvar)==current,:);
-                    
-                    %...give it an informative title.
-                    title_text = sprintf('%s %s = %d',bigtitle,groupvar,current);
-                    
-                    %...and call fixationScatter again, this time with the subset and
-                    %with the remaining factors.
-                    
-                    fixScatterplots(obj,current_subset,separate_by(2:end),x_col,y_col,xlimits,ylimits,title_text,overlay_coords,movieMode);
-                    
-                end
-            end
-            
-        end
-       
+        
         function obj = binData(obj,window_size,varargin)
             
             p = inputParser;
@@ -3086,7 +2752,7 @@ classdef iTrack
                 
             end
         end
-       
+        
         
         function obj = put(obj,input,varargin)
             p = inputParser;
@@ -3102,11 +2768,11 @@ classdef iTrack
             
             
             for s=1:length(obj.subs)
-               
+                
                 if p.Results.fix
                     
                     for t = 1:length(obj.data{s})
-                       
+                        
                         obj.data{s}(t).fix_aligned.(p.Results.event).(p.Results.roi) = input{s}(t,:);
                         
                         
@@ -3128,15 +2794,16 @@ classdef iTrack
             
         end
         
+        
         function obj = filter_eyeEvents(obj,varargin)
             p = inputParser;
             p.addRequired('direction',@(x) ischar(x) && ismember(lower(x),{'before','after'}));
             p.addRequired('cutoff',@(x) ischar(x) || isnumeric(x));
             parse(p,varargin{:});
             
-
-                       
-            if ischar(p.Results.cutoff)   
+            
+            
+            if ischar(p.Results.cutoff)
                 cutoff = subsref(obj,struct('type','.','subs',p.Results.cutoff));
                 
                 if isnumeric(cutoff{1})
@@ -3189,12 +2856,194 @@ classdef iTrack
             
             
         end
+     
+        
+        function obj=change_fixationdata(obj,newdata,varargin)
+            p = inputParser;
+            p.addParameter('fields',{'fix_x','fix_y'},@iscell);
+            parse(p,varargin{:});
+            
+            
+            
+            if isa(newdata,'dataset')
+                newdata = dataset2table(newdata);
+            end
+            
+            if ~ismember('eye_idx',newdata.Properties.VariableNames)
+                error('the matching variable eye_idx is missing from the new data');
+            end
+            
+             if ~ismember(obj.subject_var,newdata.Properties.VariableNames)
+                error('the subject variable is missing from the new data');
+             end
+            
+            
+             
+            
+            for s = 1:length(obj.subs)
+                
+                
+                newsubdata = newdata(newdata.(obj.subject_var)==obj.subs{s},:);
+                
+                [subsets, labels] = makeSubsets(newsubdata,{'eye_idx'},'keep',p.Results.fields,'table',false);
+                
+                %pull out original data, get the eye_idx to make sure we
+                %match everything correctly
+                oldsubdata = obj.data{s};
+                eye_idx = [oldsubdata.eye_idx];
+                oldsubdata = [oldsubdata.Fixations]; %pull out only the Fixations structure because matlab is dumb and can't to multi-level indexing
+                
+                for i = 1:length(subsets)
+                
+                    new_idx = find(eye_idx==labels.eye_idx(i));
+                    
+                    for f = 1:length(p.Results.fields)
+                       
+                        field = p.Results.fields{f};
+                        
+                        %sometimes we use "fix_x" "fix_y" instead of "gavx"
+                        %and "gavy"
+                        switch field
+                            case {'fix_x'}
+                                origfield = 'gavx';
+                            case {'fix_y'}
+                                origfield = 'gavy';
+                            otherwise
+                                origfield = field;
+                        end
+                        
+                        
+                        oldsubdata(new_idx).(origfield) = subsets{i}(:,f);
+                        
+                        
+                    end
+                    
+                end
+                
+                %now put the data back in to our object
+                
+                %convert structure to a cell first. Why?
+                %because matlab is dumb
+                oldsubdata = arrayfun(@(x) {x},oldsubdata);
+                
+                [obj.data{s}.Fixations] = deal(oldsubdata{:});
+
+            end
+            
+            
+            
+        end
+        
+        
+        function obj = drift_correct(obj,factors,varargin)
+            %performs drift correction separately for each level of
+            %"factors". For instance, every Block, or across different
+            %conditions
+            p = inputParser;
+            p.addParameter('threshold',30,@isnumeric); %threshold-- correct if it exceeds this many pixels
+            p.addParameter('plot',false,@islogical);
+            parse(p,varargin{:});
+            
+            
+            %make sure we do it separately for each subject    
+            if ~ismember(obj.subject_var,factors)
+                factors = horzcat(obj.subject_var,factors);
+            end
+            
+            %grab all fixation data
+            allfix = report(obj,'fixations','behvars',factors);
+                     
+          
+            %break into subsets based on our factors
+            subsets = makeSubsets(allfix,factors,'keep',horzcat(factors,'eye_idx','fix_x','fix_y'));
+            
+            %the true coordinates of the center of the screen
+            truexcenter = round(obj.screen.dims(1)/2);
+            trueycenter = round(obj.screen.dims(2)/2);
+            
+            
+            %loop through each subset
+            for s = 1:length(subsets)
+                
+                %get the median x and y coordinates of the fixations to
+                %obtain the "current center"
+                newxcenter = median(subsets{s}.fix_x);
+                newycenter = median(subsets{s}.fix_y);
+                
+                subsets{s}.adjustX = zeros(height(subsets{s}),1);
+                subsets{s}.adjustY = zeros(height(subsets{s}),1);
+                
+                %if that deviates from the true center by a certain amount
+                if abs(newxcenter - truexcenter)>=p.Results.threshold
+                    
+                    adjustX = newxcenter - truexcenter;
+                    
+                    %subtract out from x coordinates
+                    subsets{s}.fix_x = subsets{s}.fix_x - adjustX;
+                    
+                    %save our adjustment for future reference
+                    subsets{s}.adjustX(:) = adjustX;
+                    
+                end
+                
+                %and repeat for y coordinates
+                if abs(newycenter - trueycenter)>=p.Results.threshold
+                    
+                    adjustY = newycenter - trueycenter;
+                    
+                    subsets{s}.fix_y = subsets{s}.fix_y - adjustY;
+                    
+                    %save our adjustment for future reference
+                    subsets{s}.adjustY(:) = adjustY;
+                    
+                end
+                
+            end
+            %re-combine everything into a table
+            newdata = vertcat(subsets{:});
+            newdata = sortrows(newdata,factors);
+            
+            %and save the adjusted data back in
+            obj=change_fixationdata(obj,newdata);
+            
+            %also save the X and Y adjustments as behavioral variables
+            obj = add_behdata(obj,newdata(:,{obj.subject_var,'eye_idx','adjustX','adjustY'}),'index',{'eye_idx'},'append',true);
+            
+            if p.Results.plot
+                quickview(obj);
+            end
+        
+        end
+        
+        
+        function displayROIs(obj,varargin)
+            %displays all rois with numbers overlaid
+            
+            if isempty(obj.rois.combined)
+                obj = combineROIs(obj);
+            end
+            
+            imshow(obj.rois.combined);
+            set(gca,'Ydir','reverse')
+            
+            
+            
+            for i=1:length(obj.rois.single)
+                
+                text(obj.rois.single(i).coords(1),obj.rois.single(i).coords(2),num2str(obj.rois.single(i).name),'FontSize',20,'Color','black');
+                
+            end
+            
+            
+        end
+        
+       
         
     end
 end
-    
-    
-   
+
+
+
 
 
 

@@ -77,7 +77,7 @@ for j = 1:length(blinks_ix)
     ix1 = blink_start:blink_end;
     
     %find decreasing values to the left of the blink
-    i = max(find(dy1(1:min(ix1(2:end))) > 0));
+    i = find(dy1(1:min(ix1(2:end))) > 0,1,'last');
     ix2 = i:min(ix1(2:end));
     
     %remove the bad data!
@@ -85,7 +85,7 @@ for j = 1:length(blinks_ix)
     mask(row,ix2) =1;
     
     %find increasing values to the right of the blink
-    i = min(find(dy1(max(ix1):(enddata-1)) < 0));
+    i = find(dy1(max(ix1):(enddata-1)) < 0,1,'first');
     ix3 = max(ix1)+(0:i);
     
     %remove the bad data!

@@ -8,6 +8,7 @@ p.addParameter('subVar','ID',@ischar);
 p.addParameter('fix',true,@(x) islogical(x) || ismember(x,[0,1]));
 p.addParameter('roi','',@ischar);
 p.addParameter('legend',true,@(x) islogical(x) || ismember(x,[0,1]))
+p.addParameter('legendpos','NorthEast',@ischar)
 p.addParameter('LineWidth',2,@isnumeric)
 p.addParameter('ylim','auto',@(x) (length(x)==2 && isnumeric(x)) || strcmp(x,'auto'));
 p.addParameter('ttest',false,@(x) islogical(x) || ismember(x,[0,1]))
@@ -83,7 +84,7 @@ for i=1:length(allFigData)
     
     if p.Results.legend
         names=temp.lineVars;
-        clickableLegend(cellfun(@fix_title_string,names,'Uniform',false),'Location','NorthWest');
+        clickableLegend(cellfun(@fix_title_string,names,'Uniform',false),'Location',p.Results.legendpos);
     end
     
     title(cellfun(@fix_title_string,allFigData(i).title,'Uniform',false),'fontSize',10);

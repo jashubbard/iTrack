@@ -1,45 +1,44 @@
-function [allsubsets,idx,levels]=makeSubsets(allData,factors,varargin)
+function [subsets, levels, idx,varname]=makeSubsets(ds,factors,varargin)
+%given an input table or dataset, splits into subsets based on factors,
+%specified as a cell array of variable names
+%optionally can specify only variables you want to keep in each subset
+%and whether each subset should be another table, or just the data (i.e.,
+%vectors or cell arrays, depending on the variable)
+%subsets is a cell array of each subset. 
+%levels is a table showing the unique groups (that match to subsets)
+%idx is a vector of numbers as long as the original data specifying which
+%row of "subsets" that row falls into 
 
-if nargin>2
-   
-    names=varargin{1};
-    
+p = inputParser;
+p.addParameter('table',1,@(x) islogical(x) || ismember(x,[0,1]));
+p.addParameter('keep',{},@(x) ischar(x) || iscell(x));
+parse(p,varargin{:});
+
+%only work with tables
+if isa(ds,'dataset')
+    ds = dataset2table(ds);
+end
+
+%which variables to keep
+if isempty(p.Results.keep)
+    varstokeep = ds.Properties.VariableNames;
 else
-    names=factors;
-    
+    varstokeep = p.Results.keep;    
 end
 
-%having underscores in the factor names is a problem. this removes them
 
-for f = 1:length(factors)
+[levels,~,idx] = unique(ds(:,factors),'rows');
 
-newname = regexprep(factors{f},'_','');
-
-allData.(newname) = allData.(factors{f});
-alldata.(factors{f}) = [];
-
-factors{f} = newname;
-
-
+if p.Results.table
+    subsets = arrayfun(@(x) ds(idx == x, varstokeep), unique(idx), 'Uniform', false);
+else
+    subsets = arrayfun(@(x) ds{idx == x, varstokeep}, unique(idx), 'Uniform', false);
 end
 
-[combined_factor,idx,varname] = combineFactors(allData,factors);
 
-levels=unique(idx);
-levels(isnan(levels))=[];
+levels.label = cell(height(levels),1);
 
-allsubsets=struct;
-
-allData.(varname)=combined_factor;
-
-for i=1:length(levels)
-    allsubsets(i).subset=allData(idx==levels(i),:);
-    val=unique(combined_factor(idx==levels(i)));
-    allsubsets(i).group=val{1}; 
-    allsubsets(i).varname=varname;
-    allsubsets(i).grouping_vars=factors;
-    allsubsets(i).title = combineDelimStrings(varname,val{1},'_','=');
-end
+[levels.label, varname,~]=makeLabels(levels,factors);
 
 
 
