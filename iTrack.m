@@ -80,6 +80,9 @@ classdef iTrack
                 
                 fname=GetFullPath(edfs{s});
                 
+                [~,file,ext] =fileparts(fname);
+                justfile = strcat(file,ext);
+                
                 
                 %import edf file
                 
@@ -120,7 +123,7 @@ classdef iTrack
                 [x.beh] = deal(struct);
                 %                 [x.fixation_hits]  = deal([]);
                 
-                obj.subs{s,1}=str2double(regexprep(fname,'[!@#$%^&()?"*+=-:_'',./~` A-Za-z]','')); %subject number from filename, minus any funny characters
+                obj.subs{s,1}=str2double(regexprep(justfile,'[!@#$%^&()?"*+=-:_'',./~` A-Za-z]','')); %subject number from filename, minus any funny characters
                 
                 %trials with no recorded fixations are empty [], but we want
                 %them to be structures with NaN's for each field - it makes
