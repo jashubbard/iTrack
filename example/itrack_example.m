@@ -4,8 +4,8 @@ clear
 clc
 close all;
 
-
-datadir='~/Documents/dev/pupils/example';
+%first cd to wherever you put the iTrack folder (e.g., ~/Downloads/iTrack)
+datadir='./example';
 cd(datadir)
 
 %get the name of all edf files in the directory
@@ -29,7 +29,16 @@ extra_trials = [
     831]
 
 clear z
-z = iTrack('edfs',edffiles,'subject_var','ID','samples',true,'droptrials',extra_trials,'keeptrials',[],'keepraw',false); %if you're only looking at fixations, change 'samples' to false!
+
+%iTrack(edffiles) will import all trials, without samples. This is what you
+%want for most situations. 
+
+%this shows all the available options
+z = iTrack(edffiles,'subject_var','ID','samples',true,'droptrials',extra_trials,'keeptrials',[],'keepraw',false); %if you're only looking at fixations, change 'samples' to false!
+
+%1024 x 768 is the default screen resolution. You can change it this way. 
+% z.screen.dims = [1024, 768]; 
+
 
 methods(z) %lists all functions associated with the object
 
@@ -37,8 +46,9 @@ methods(z) %lists all functions associated with the object
 
 % z = reset(z); %go back to the original data without reloading edfs; 
 
+
 %% Merge with Behavioral Data
-cd(datadir)
+
 load beh.mat; %adds the table, 'beh' to the workspace
 %%
 
@@ -61,11 +71,12 @@ z= add_fields(z,'events',true,'search',{'BLOCK *', 'TRIAL '},'fieldnames',{'Bloc
 %can be loaded as a table (e.g., 'exp1beh.txt')
 z = add_behdata(z,beh,'index',{'Block','Trial'},'append',false); %'append' allows you to add more variables later
 
-%throw out trials based on a behavioral variable
-z = filter_trials(z,'variable','Practice','condition','==','value',0); 
+%this pulls out the timing of an eyetracking event and adds a field to the
+%behavioral portion
+z = extract_event(z,'search','STIMONSET','time',true,'behfield',true);
+z = extract_event(z,'search','RESPONSE','time',true,'behfield',true);
 
 %%
-
 
 %%%%%%%%%% FIXATION-BASED WORKFLOW %%%%%%%%%%%%%%%%%%%%%
 
@@ -80,25 +91,36 @@ coords = radialCoords(512,384,12,200,0); %creates coordinates of 12 objects, cen
 z = makeROIs(z,coords,'shape','ellipse','xradius',40,'yradius',150,'angle',0:30:360); %elliptical rois rotated
 
 
-
 z = combineROIs(z); %make one composite ROI- useful for visualization 
 
-close all;
-imshow(z.rois.combined) %and display
+displayROIs(z); %vizualize the ROIs and label them
+
+%%
 
 
-z.rois
+%quickly view scatterplots of all subjects with overlays for ROIs 
+quickview(z)
 
+%%
+
+%OPTIONAL - perform drift correction for each block and subject.
+%This calculates the median of the x and y coordinates for each block, and
+%treats that as the "true" center, and adjusts all fixations by this offset
+%from the screen center (z.screen.dims)
+
+z = drift_correct(z,{'Block'},'plot',true);
 
 %% Calculate "hits" for each ROI
 
-%see whether eyes hit each roi for each fixation
-z = calcFixationHits(z,'rois','all');  %can also do {'center','one','two','three'} and so forth
+%calculate whether the eyes hit a given roi (fixations and saccades)
+z = calcHits(z,'rois','all');
 
-%map a trial-specific roi to one of our "global" rois
-z = mapROIs(z,'target','indicator','Targetpos'); %Targetpos is a behavioral variable, 1-12, corresponds to our same 12 rois we created
-z = mapROIs(z,'distractor','indicator','Distpos');
+%%
 
+%using behavioral variables to indicate trial-by-trial ROIs
+z = mapROIs(z,'name',{'target','distractor'},'indicator',{'Targetpos','Distpos'});
+
+%%
 
 %this creates a timeseries indicating whether eyes hit a given roi across
 %time
@@ -122,7 +144,8 @@ z = binData(z,25,'events',{'STIMONSET','RESPONSE'},'fix',true,'rois',{'target','
 
 %creates a separate figure for each level of 'Switch' and 'Targetpos', and
 %a separate subplot for fixations that hit the target or not (optional)
-scatterplots(z,{'Switch','Targetpos'},'rois',{'target'}) 
+close all
+scatterplots(z,{'Switch','Targetpos'},'roi',{'target'},'overlay',true,'hitonly',true)
 
 
 %% Line Plots
@@ -141,23 +164,32 @@ allfigdata=linePlots(z,'plotVars',plotVars,'dataVar',dataVar,'legend',1,'lineVar
 
 %% Saving flat tables for further analyses
 
-%time-locked fixation data (1 row per trial)
-%'beh' is optional-- if you only want certain behavioral variables
-fixationdata = build_dataset(z,'beh',{},'events',{'STIMONSET','RESPONSE'},'fix',true,'rois',{'target','distractor'});
-%%%writetable(fixationdata,'fixation_data.txt','Delimiter','\t');
+fix = report(z,'fixations','rois',{'target','distractor'}); %fixations
+sac = report(z,'saccades','rois',{'target','distractor'}); %saccades
+blinks = report(z,'blinks'); %blinks
+counts = report(z,'counts'); %counts of the different events
 
+%%
 
-%all fixation data (multiple fixations per trial)
-allfixdata = build_dataset(z,'allfix',true,'rois',{'target','distractor','xy','time'}); %xy and time give you the timing and coordinates of each fixaiton, respectively
-%%%writetable(allfixdata,'allfixdata.txt','Delimiter','\t');
+%this is a work in progress. quickly grabbing epoched fixations as
+%matrices
+
+eye_beh = get_new(z,'beh'); %behavioral data that has been merged with eye data
+[stimtar,stimdist,resptar,respdist] = get_new(z,'epoched_fixations','events',{'STIMONSET','RESPONSE'},'rois',{'target','distractor'});
+
+eyedata = eye_beh;
+eyedata.target_STIMONSET = stimtar;
+eyedata.target_RESPONSE = resptar;
+
 
 %% Line plots from our flat table
 
 plotVars={'CSI'}; %for making separate figures
 lineVars={'Switch'}; %for plotting separate lines on the same figures
-dataVar='target_STIMONSET'; %our data we want to plot (in this case, the event we're time locked to)
+dataVar = 'target_STIMONSET';
+roi='target'; %our data we want to plot (in this case, the event we're time locked to)
 
-allfigdata=linePlots(fixationdata,'plotVars',plotVars,'dataVar',dataVar,'legend',1,'lineVars',lineVars,'ylim','auto',...
+allfigdata=linePlots(eyedata,'plotVars',plotVars,'dataVar',dataVar,'legend',1,'lineVars',lineVars,'ylim','auto',...
     'LineWidth',2,'filter','GoodTrial','value',1,'lineVars',lineVars); %you can use 'filter' to throw out error trials, etc.
 
 
@@ -239,6 +271,28 @@ allfigdata=linePlots(z,'plotVars',factors,'dataVar',dataVar,'legend',1,'ylim','a
 
 %% Save pupil data in a flat table
 
-pupildata = build_dataset(z,'beh',{'ID','Block','Trial','CSI','Switch','GoodTrial'},'events',{'STIMONSET','RESPONSE'});
-% % % writetable(pupildata,'pupil_data.txt','Delimiter','\t');
+
+%this is a work in progress. quickly grabbing epoched fixations as
+%matrices
+
+eye_beh = get_new(z,'beh'); %behavioral data that has been merged with eye data
+[pupil_stim,pupil_resp] = get_new(z,'epoched_pupil','events',{'STIMONSET','RESPONSE'});
+
+pupildata = eye_beh;
+pupildata.PUPIL_STIMLOCKED = pupil_stim;
+pupildata.PUPIL_RESPLOCKED = pupil_resp;
+
+
+%% Line Plots of our pupil data starting from the flat table
+
+factors={'Switch'};
+dataVar='PUPIL_STIMLOCKED';
+lineVars={'CSI'};
+
+
+close all
+
+allfigdata=linePlots(pupildata,'plotVars',factors,'dataVar',dataVar,'legend',1,'ylim','auto','fix',false,...
+    'LineWidth',2,'lineVars',lineVars,'filter','GoodTrial','value',1,'func',@mean); %you can also set the 'ylim' for all figures manually 
+
 
